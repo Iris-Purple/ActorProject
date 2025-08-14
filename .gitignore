@@ -1,0 +1,7 @@
+ActorServer/.vscode/
+ActorServer/bin/
+ActorServer/obj/
+
+ActorClient/.vscode/
+ActorClient/bin/
+ActorClient/obj/
