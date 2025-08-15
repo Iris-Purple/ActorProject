@@ -24,7 +24,6 @@ public class WorldActor : ReceiveActor
         Receive<PlayerDisconnect>(HandlePlayerDisconnect);
         Receive<RequestZoneChange>(HandleZoneChangeRequest);
         Receive<GetMetrics>(msg => metricsActor.Forward(msg));
-
         Receive<RegisterClientConnection>(HandleRegisterClient);
         Receive<Terminated>(HandleTerminated);
         Receive<TestSupervision>(HandleTestSupervision);
@@ -181,7 +180,3 @@ public class WorldActor : ReceiveActor
         }
     }
 }
-
-public record RequestZoneChange(string PlayerName, string TargetZoneId);
-public record RelayToClient(string PlayerName, string From, string Message);
-public record ChatToClient(string From, string Message);

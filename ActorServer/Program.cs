@@ -90,7 +90,6 @@ class Program
         worldActor.Tell(new PlayerLoginRequest("TestPlayer1"));
         worldActor.Tell(new PlayerLoginRequest("TestPlayer2"));
         await Task.Delay(1000);
-        return;
 
         // Phase 2: 정상 동작 테스트
         Console.WriteLine("\n▶ Phase 2: Normal operations");

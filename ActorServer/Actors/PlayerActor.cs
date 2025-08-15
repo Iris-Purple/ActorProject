@@ -389,12 +389,4 @@ namespace ActorServer.Actors
 
         #endregion
     }
-
-    #region 테스트용 메시지 타입
-
-    public record TestNullCommand();
-    public record SimulateCrash(string Reason);
-    public record SimulateOutOfMemory();
-
-    #endregion
 }

@@ -2,31 +2,28 @@ using Akka.Actor;
 
 namespace ActorServer.Messages;
 
-public record SetZone(IActorRef ZoneActor);
-public record SetClientConnection(IActorRef ClientActor);
-// 위치 정보
+// === 기본 메시지 ===
 public record Position(float X, float Y);
-// 플레이어 정보
 public record PlayerInfo(IActorRef Actor, string Name, Position Position);
-// 로그인 요청
+
+// === 로그인/연결 관련 ===
 public record PlayerLoginRequest(string PlayerName);
 public record PlayerDisconnect(string PlayerName);
-public record PlayerPositionUpdate(string PlayerName, Position NewPosition);
-public record PlayerJoinedZone(PlayerInfo Player);
-// 이동 명령
+public record RegisterClientConnection(string PlayerName, IActorRef ClientActor);
+public record SetClientConnection(IActorRef ClientActor);
+
+// === 이동 관련 ===
 public record MoveCommand(Position NewPosition);
-// WorldActor 가 플레이어 명령을 라우팅 할 수 있음
-public record PlayerCommand(string PlayerName, object Command);
-
-// Zone 관련 메시지
-public record AddPlayerToZone(IActorRef PlayerActor, string PlayerName);
-public record RemovePlayerFromZone(IActorRef PlayerActor);
 public record PlayerMovement(IActorRef PlayerActor, Position NewPosition);
+public record PlayerPositionUpdate(string PlayerName, Position NewPosition);
 
-// 클라이언트에게 보낼 메시지
-public record CurrentPlayersInZone(IEnumerable<PlayerInfo> Players);
-public record PlayerLeftZone(string PlayerName);
+// === 플레이어 명령 라우팅 ===
+public record PlayerCommand(string PlayerName, object? Command);
 
-// 채팅 메시지 (플레이어가 보내는 것)
-public record ChatMessage(string PlayerName, string Message);
-public record ChatBroadcast(string PlayerName, string Message, DateTime Timestamp);
+// === Zone 이동 요청 (WorldActor → ZoneManager) ===
+public record RequestZoneChange(string PlayerName, string TargetZoneId);
+
+// === 클라이언트 통신 ===
+public record ChatToClient(string From, string Message);
+public record LoginFailed(string PlayerName, string Reason);
+public record CommandFailed(string PlayerName, string Command, string Reason);
