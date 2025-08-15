@@ -8,7 +8,6 @@ public class WorldActor : ReceiveActor
     private Dictionary<string, IActorRef> players = new();
     private Dictionary<string, IActorRef> clientConnections = new();
     private IActorRef zoneManager;
-    private IActorRef metricsActor;
 
     protected override SupervisorStrategy SupervisorStrategy()
     {
@@ -17,13 +16,11 @@ public class WorldActor : ReceiveActor
     public WorldActor()
     {
         zoneManager = Context.ActorOf(Props.Create<ZoneManager>(), "zone-manager");
-        metricsActor = Context.ActorOf(Props.Create<MetricsActor>(), "metrics");
 
         Receive<PlayerLoginRequest>(HandlePlayerLogin);
         Receive<PlayerCommand>(HandlePlayerCommand);
         Receive<PlayerDisconnect>(HandlePlayerDisconnect);
         Receive<RequestZoneChange>(HandleZoneChangeRequest);
-        Receive<GetMetrics>(msg => metricsActor.Forward(msg));
         Receive<RegisterClientConnection>(HandleRegisterClient);
         Receive<Terminated>(HandleTerminated);
         Receive<TestSupervision>(HandleTestSupervision);
@@ -49,7 +46,6 @@ public class WorldActor : ReceiveActor
             }
 
             zoneManager.Tell(new ChangeZoneRequest(playerActor, msg.PlayerName, "town"));
-            metricsActor.Tell(new PlayerLoggedIn());
             Console.WriteLine($"[World] Player {msg.PlayerName} logged in");
         }
         catch (Exception ex)
@@ -73,7 +69,6 @@ public class WorldActor : ReceiveActor
                         $"Command isnull for player {cmd.PlayerName}");
                 }
                 playerActor.Tell(cmd.Command);
-                metricsActor.Tell(new MessageProcessed());
             }
             catch (Exception ex)
             {
@@ -96,7 +91,6 @@ public class WorldActor : ReceiveActor
             players.Remove(msg.PlayerName);
             clientConnections.Remove(msg.PlayerName);
 
-            metricsActor.Tell(new PlayerLoggedOut());
             Console.WriteLine($"[World] Player {msg.PlayerName} disconnected");
         }
     }

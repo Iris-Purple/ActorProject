@@ -31,9 +31,8 @@ class Program
             Console.WriteLine("\n========== Server Menu ==========");
             Console.WriteLine("1. Run Supervision Test");
             Console.WriteLine("2. Run Zone Test");
-            Console.WriteLine("3. Show Metrics");
-            Console.WriteLine("4. Test Specific Error");
-            Console.WriteLine("5. Check Zone Health");
+            Console.WriteLine("3. Test Specific Error");
+            Console.WriteLine("4. Check Zone Health");
             Console.WriteLine("0. Exit");
             Console.WriteLine("=================================");
             Console.Write("Select option: ");
@@ -51,15 +50,10 @@ class Program
                     break;
                     
                 case "3":
-                    worldActor.Tell(new GetMetrics());
-                    await Task.Delay(500);
-                    break;
-                    
-                case "4":
                     await RunSpecificErrorTest(worldActor);
                     break;
                     
-                case "5":
+                case "4":
                     worldActor.Tell(new CheckZoneHealth());
                     await Task.Delay(500);
                     break;
