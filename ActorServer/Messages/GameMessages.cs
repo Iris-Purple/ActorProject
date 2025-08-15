@@ -3,6 +3,7 @@ using Akka.Actor;
 namespace ActorServer.Messages;
 
 public record SetZone(IActorRef ZoneActor);
+public record SetClientConnection(IActorRef ClientActor);
 // 위치 정보
 public record Position(float X, float Y);
 // 플레이어 정보

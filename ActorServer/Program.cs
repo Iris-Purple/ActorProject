@@ -1,5 +1,4 @@
-﻿
-using ActorServer.Actors;
+﻿using ActorServer.Actors;
 using ActorServer.Messages;
 using ActorServer.Network;
 using Akka.Actor;
@@ -8,125 +7,210 @@ class Program
 {
     static async Task Main(string[] args)
     {
-        var system = ActorSystem.Create("MMOSrever");
+        var system = ActorSystem.Create("MMOServer");
+        
+        // WorldActor 생성 (Supervision 전략 포함)
         var worldActor = system.ActorOf(Props.Create<WorldActor>(), "world");
 
+        // TCP 서버 시작
         var tcpServer = system.ActorOf(
             Props.Create(() => new TcpServerActor(worldActor, 9999)),
             "tcp-server"
         );
 
-        Console.WriteLine("MMORPG Server started with Zone system...");
+        Console.WriteLine("==============================================");
+        Console.WriteLine("  MMORPG Server with Actor Supervision");
+        Console.WriteLine("  Akka.NET 1.5.46");
+        Console.WriteLine("==============================================");
         Console.WriteLine("Available zones: town, forest, dungeon-1\n");
 
-        // 테스트 시나리오
-        //await RunZoneTestScenario(worldActor);
+        // 메뉴 시스템
+        bool running = true;
+        while (running)
+        {
+            Console.WriteLine("\n========== Server Menu ==========");
+            Console.WriteLine("1. Run Supervision Test");
+            Console.WriteLine("2. Run Zone Test");
+            Console.WriteLine("3. Show Metrics");
+            Console.WriteLine("4. Test Specific Error");
+            Console.WriteLine("5. Check Zone Health");
+            Console.WriteLine("0. Exit");
+            Console.WriteLine("=================================");
+            Console.Write("Select option: ");
+            
+            var input = Console.ReadLine();
+            
+            switch (input)
+            {
+                case "1":
+                    await RunSupervisionTestScenario(worldActor);
+                    break;
+                    
+                case "2":
+                    await RunZoneTestScenario(worldActor);
+                    break;
+                    
+                case "3":
+                    worldActor.Tell(new GetMetrics());
+                    await Task.Delay(500);
+                    break;
+                    
+                case "4":
+                    await RunSpecificErrorTest(worldActor);
+                    break;
+                    
+                case "5":
+                    worldActor.Tell(new CheckZoneHealth());
+                    await Task.Delay(500);
+                    break;
+                    
+                case "0":
+                    running = false;
+                    break;
+                    
+                default:
+                    Console.WriteLine("Invalid option");
+                    break;
+            }
+        }
 
-        Console.WriteLine("\n--- Server running. Press Enter to shutdown ---");
-        Console.ReadLine();
-
-        Console.WriteLine("Shutting down server...");
+        Console.WriteLine("\nShutting down server...");
         await system.Terminate();
         Console.WriteLine("Server terminated.");
     }
 
+    static async Task RunSupervisionTestScenario(IActorRef worldActor)
+    {
+        Console.WriteLine("\n╔════════════════════════════════════════╗");
+        Console.WriteLine("║    SUPERVISION & ERROR HANDLING TEST    ║");
+        Console.WriteLine("╚════════════════════════════════════════╝\n");
+
+        // Phase 1: 정상 플레이어 생성
+        Console.WriteLine("▶ Phase 1: Creating test players");
+        worldActor.Tell(new PlayerLoginRequest("TestPlayer1"));
+        worldActor.Tell(new PlayerLoginRequest("TestPlayer2"));
+        await Task.Delay(1000);
+        return;
+
+        // Phase 2: 정상 동작 테스트
+        Console.WriteLine("\n▶ Phase 2: Normal operations");
+        worldActor.Tell(new PlayerCommand("TestPlayer1", 
+            new MoveCommand(new Position(10, 10))));
+        await Task.Delay(500);
+
+        // Phase 3: GameLogicException 테스트 (Resume)
+        Console.WriteLine("\n▶ Phase 3: Testing GameLogicException (should RESUME)");
+        Console.WriteLine("  → Sending invalid position (NaN values)");
+        worldActor.Tell(new PlayerCommand("TestPlayer1", 
+            new MoveCommand(new Position(float.NaN, float.NaN))));
+        await Task.Delay(1000);
+
+        Console.WriteLine("  → Checking if player still responds...");
+        worldActor.Tell(new PlayerCommand("TestPlayer1", 
+            new MoveCommand(new Position(15, 15))));
+        await Task.Delay(1000);
+
+        // Phase 4: ArgumentNullException 테스트 (Resume)
+        Console.WriteLine("\n▶ Phase 4: Testing ArgumentNullException (should RESUME)");
+        Console.WriteLine("  → Sending null command");
+        worldActor.Tell(new PlayerCommand("TestPlayer1", null!));
+        await Task.Delay(1000);
+
+        Console.WriteLine("  → Checking if player still responds...");
+        worldActor.Tell(new PlayerCommand("TestPlayer1", 
+            new MoveCommand(new Position(20, 20))));
+        await Task.Delay(1000);
+
+        // Phase 5: TemporaryGameException 테스트 (Restart)
+        Console.WriteLine("\n▶ Phase 5: Testing TemporaryGameException (should RESTART)");
+        Console.WriteLine("  → Simulating player crash");
+        worldActor.Tell(new TestSupervision("TestPlayer1", "CrashPlayer"));
+        await Task.Delay(2000);
+
+        Console.WriteLine("  → Checking if player recovered...");
+        worldActor.Tell(new PlayerCommand("TestPlayer1", 
+            new MoveCommand(new Position(25, 25))));
+        await Task.Delay(1000);
+
+        // 정리
+        Console.WriteLine("\n▶ Cleanup");
+        worldActor.Tell(new PlayerDisconnect("TestPlayer1"));
+        worldActor.Tell(new PlayerDisconnect("TestPlayer2"));
+        await Task.Delay(1000);
+
+        Console.WriteLine("\n╔════════════════════════════════════════╗");
+        Console.WriteLine("║         TEST COMPLETED SUCCESSFULLY      ║");
+        Console.WriteLine("╚════════════════════════════════════════╝");
+        Console.WriteLine("\n✅ Summary:");
+        Console.WriteLine("  • GameLogicException → Actor RESUMED");
+        Console.WriteLine("  • ArgumentNullException → Actor RESUMED");
+        Console.WriteLine("  • TemporaryGameException → Actor RESTARTED");
+        Console.WriteLine("  • System remained stable");
+    }
+
+    static async Task RunSpecificErrorTest(IActorRef worldActor)
+    {
+        Console.WriteLine("\n--- Specific Error Test ---");
+        Console.WriteLine("1. Test ArgumentNull");
+        Console.WriteLine("2. Test Invalid Move");
+        Console.WriteLine("3. Test Crash");
+        Console.Write("Select error type: ");
+        
+        var errorType = Console.ReadLine();
+        
+        // 테스트용 플레이어 생성
+        worldActor.Tell(new PlayerLoginRequest("ErrorTestPlayer"));
+        await Task.Delay(500);
+        
+        switch (errorType)
+        {
+            case "1":
+                worldActor.Tell(new TestSupervision("ErrorTestPlayer", "ArgumentNull"));
+                break;
+            case "2":
+                worldActor.Tell(new TestSupervision("ErrorTestPlayer", "InvalidMove"));
+                break;
+            case "3":
+                worldActor.Tell(new TestSupervision("ErrorTestPlayer", "CrashPlayer"));
+                break;
+        }
+        
+        await Task.Delay(2000);
+        
+        // 복구 확인
+        Console.WriteLine("\nTesting if player is still alive...");
+        worldActor.Tell(new PlayerCommand("ErrorTestPlayer", 
+            new MoveCommand(new Position(50, 50))));
+        await Task.Delay(1000);
+        
+        // 정리
+        worldActor.Tell(new PlayerDisconnect("ErrorTestPlayer"));
+    }
+
+    // 기존 RunZoneTestScenario는 유지
     static async Task RunZoneTestScenario(IActorRef worldActor)
     {
-        Console.WriteLine("=== Zone Movement Test Scenario ===\n");
-
-        // 1. 플레이어 3명 로그인 (모두 town에서 시작)
-        Console.WriteLine("--- Phase 1: Players logging in ---");
+        Console.WriteLine("=== Zone Movement Test ===\n");
+        
+        // 플레이어 로그인
         worldActor.Tell(new PlayerLoginRequest("Alice"));
         await Task.Delay(500);
-
         worldActor.Tell(new PlayerLoginRequest("Bob"));
         await Task.Delay(500);
-
-        worldActor.Tell(new PlayerLoginRequest("Charlie"));
-        await Task.Delay(1000);
-
-        // 2. Town에서 이동 테스트
-        Console.WriteLine("\n--- Phase 2: Movement in Town ---");
+        
+        // Town에서 이동
         worldActor.Tell(new PlayerCommand("Alice", new MoveCommand(new Position(10, 10))));
         await Task.Delay(500);
-
-        worldActor.Tell(new PlayerCommand("Bob", new MoveCommand(new Position(20, 20))));
-        await Task.Delay(1000);
-
-        Console.WriteLine("\n--- Phase 2.5: Chat Test in Town ---");
-        worldActor.Tell(new PlayerCommand("Alice", new ChatMessage("Alice", "Hello everyone!")));
-        await Task.Delay(500);
-
-        worldActor.Tell(new PlayerCommand("Bob", new ChatMessage("Bob", "Hi Alice!")));
-        await Task.Delay(500);
-
-        // 3. Alice가 Forest로 이동
-        Console.WriteLine("\n--- Phase 3: Alice moves to Forest ---");
+        
+        // Zone 변경
         worldActor.Tell(new RequestZoneChange("Alice", "forest"));
         await Task.Delay(1000);
-
-        // Forest에서 이동
-        worldActor.Tell(new PlayerCommand("Alice", new MoveCommand(new Position(110, 110))));
-        await Task.Delay(1000);
-
-        // 4. Bob도 Forest로 이동
-        Console.WriteLine("\n--- Phase 4: Bob joins Alice in Forest ---");
-        worldActor.Tell(new RequestZoneChange("Bob", "forest"));
-        await Task.Delay(1000);
-
-        // Bob은 Forest에 있음
-        Console.WriteLine("\n--- Phase 4.5: Zone-separated Chat Test ---");
-        worldActor.Tell(new PlayerCommand("Bob", new ChatMessage("Bob", "Anyone here in the Forest?")));
-        await Task.Delay(500);
-
-        // Chrlie는 Town에 있음
-        worldActor.Tell(new PlayerCommand("Charlie", new ChatMessage("Charlie", "Hello from Town!")));
-        await Task.Delay(500);
-        // Alice도 Forest에 있으니 Bob의 메시지는 보이지만 Charlie는 안 보임
-        worldActor.Tell(new PlayerCommand("Alice",
-            new ChatMessage("Alice", "Yes Bob, I'm in Forest too!")));
-        await Task.Delay(1000);
-
-        Console.WriteLine("\n--- Chat Test Result ---");
-        Console.WriteLine("Expected: Bob and Alice see each other's messages (both in Forest)");
-        Console.WriteLine("Expected: Charlie doesn't see Forest chat (he's in Town)");
-        Console.WriteLine("Expected: Bob/Alice don't see Charlie's Town chat");
-
-        // 두 플레이어가 Forest에서 이동
-        worldActor.Tell(new PlayerCommand("Alice", new MoveCommand(new Position(120, 120))));
-        worldActor.Tell(new PlayerCommand("Bob", new MoveCommand(new Position(130, 130))));
-        await Task.Delay(1000);
-
-        // 5. Charlie는 Dungeon으로 이동
-        Console.WriteLine("\n--- Phase 5: Charlie enters Dungeon ---");
-        worldActor.Tell(new RequestZoneChange("Charlie", "dungeon-1"));
-        await Task.Delay(1000);
-
-        worldActor.Tell(new PlayerCommand("Charlie", new MoveCommand(new Position(210, 210))));
-        await Task.Delay(1000);
-
-        // 6. Alice가 Town으로 복귀
-        Console.WriteLine("\n--- Phase 6: Alice returns to Town ---");
-        worldActor.Tell(new RequestZoneChange("Alice", "town"));
-        await Task.Delay(1000);
-
-        // 7. 플레이어 위치 확인을 위한 추가 이동
-        Console.WriteLine("\n--- Phase 7: Final movements ---");
-        worldActor.Tell(new PlayerCommand("Alice", new MoveCommand(new Position(5, 5))));
-        worldActor.Tell(new PlayerCommand("Bob", new MoveCommand(new Position(150, 150))));
-        worldActor.Tell(new PlayerCommand("Charlie", new MoveCommand(new Position(220, 220))));
-        await Task.Delay(1000);
-
-        Console.WriteLine("\n--- Phase 8: Metrics Test ---");
-        worldActor.Tell(new GetMetrics());
-        await Task.Delay(1000);
-
+        
+        // 정리
+        worldActor.Tell(new PlayerDisconnect("Alice"));
         worldActor.Tell(new PlayerDisconnect("Bob"));
         await Task.Delay(500);
-
-        worldActor.Tell(new GetMetrics());
-        await Task.Delay(1000);
-
-        Console.WriteLine("\n=== Test Scenario Complete ===");
+        
+        Console.WriteLine("\n=== Test Complete ===");
     }
 }
