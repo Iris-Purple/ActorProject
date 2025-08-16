@@ -2,8 +2,10 @@ using Akka.Actor;
 
 namespace ActorServer.Messages;
 
+// ============================================
+// Zone 정보
+// ============================================
 
-// === Zone 정보 ===
 public class ZoneInfo
 {
     public string ZoneId { get; set; } = "";
@@ -24,18 +26,30 @@ public enum ZoneType
     Raid
 }
 
-// === Zone Manager 메시지 ===
+// ============================================
+// Zone Manager 메시지
+// ============================================
+
 public record GetZoneInfo(string ZoneId);
 public record ZoneInfoResponse(ZoneInfo Info);
 public record ZoneNotFound(string ZoneId);
-public record ChangeZoneRequest(IActorRef PlayerActor, string PlayerName, string TargetZoneId);
-public record ChangeZoneResponse(bool Success, string Message);
+
+public record ChangeZoneResponse(
+    bool Success, 
+    string Message
+);
+
 public record GetAllZones();
 public record AllZonesResponse(IEnumerable<ZoneInfo> Zones);
 
-// === Zone Actor 메시지 ===
+// ============================================
+// Zone Actor 메시지
+// ============================================
+
+
 public record SetZone(IActorRef ZoneActor);
 public record GetZoneStatus();
+
 public record ZoneStatus
 {
     public ZoneInfo ZoneInfo { get; set; } = null!;
@@ -43,18 +57,78 @@ public record ZoneStatus
     public List<string> Players { get; set; } = new();
 }
 
-// === Zone 진입/퇴장 ===
-public record AddPlayerToZone(IActorRef PlayerActor, string PlayerName);
-public record RemovePlayerFromZone(IActorRef PlayerActor);
-public record CurrentPlayersInZone(IEnumerable<PlayerInfo> Players);
-public record PlayerJoinedZone(PlayerInfo Player);
-public record PlayerLeftZone(string PlayerName);
+// ============================================
+// Zone 진입/퇴장 알림
+// ============================================
 
-// === Zone 상태 알림 ===
 public record ZoneEntered(ZoneInfo ZoneInfo);
 public record ZoneFull(string ZoneId);
 public record OutOfBoundWarning(string ZoneId);
 
-// === Zone 헬스 체크 ===
+// ============================================
+// Zone 내 플레이어 상태
+// ============================================
+
+public record CurrentPlayersInZone(IEnumerable<PlayerInfo> Players);
+public record PlayerJoinedZone(PlayerInfo Player);
+public record PlayerLeftZone(string PlayerName);
+
+public record PlayerPositionUpdate(
+    string PlayerName, 
+    Position NewPosition
+);
+
+// ============================================
+// Zone 헬스 체크
+// ============================================
+
 public record CheckZoneHealth();
-public record ZoneHealthStatus(string ZoneId, bool IsHealthy, int PlayerCount);
+public record ZoneHealthStatus(
+    string ZoneId, 
+    bool IsHealthy, 
+    int PlayerCount
+);
+
+public record PlayerInfoWithId(
+    IActorRef Actor, 
+    long PlayerId,
+    string Name, 
+    Position Position
+);
+
+public record AddPlayerToZone(
+    IActorRef PlayerActor, 
+    long PlayerId,
+    string PlayerName
+);
+
+public record RemovePlayerFromZone(
+    IActorRef PlayerActor,
+    long PlayerId
+);
+
+public record ChangeZoneRequest(
+    IActorRef PlayerActor, 
+    long PlayerId,
+    string PlayerName, 
+    string TargetZoneId
+);
+
+public record CurrentPlayersInZoneWithId(
+    IEnumerable<PlayerInfoWithId> Players
+);
+
+public record PlayerJoinedZoneWithId(
+    PlayerInfoWithId Player
+);
+
+public record PlayerLeftZoneWithId(
+    long PlayerId,
+    string PlayerName
+);
+
+public record PlayerPositionUpdateWithId(
+    long PlayerId,
+    string PlayerName,
+    Position NewPosition
+);

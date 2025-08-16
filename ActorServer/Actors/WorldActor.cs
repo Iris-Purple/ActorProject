@@ -5,9 +5,11 @@ namespace ActorServer.Actors;
 
 public class WorldActor : ReceiveActor
 {
-    private Dictionary<string, IActorRef> players = new();
-    private Dictionary<string, IActorRef> clientConnections = new();
+    private Dictionary<long, IActorRef> players = new();
+    private Dictionary<long, IActorRef> clientConnections = new();
+    private Dictionary<string, long> nameToIdCache = new();
     private IActorRef zoneManager;
+    private readonly PlayerIdManager idManager = PlayerIdManager.Instance!;
 
     protected override SupervisorStrategy SupervisorStrategy()
     {
@@ -29,29 +31,36 @@ public class WorldActor : ReceiveActor
     {
         try
         {
-            if (players.ContainsKey(msg.PlayerName))
+            var playerId = idManager.GetOrCreatePlayerId(msg.PlayerName);
+            if (players.ContainsKey(playerId))
             {
                 Console.WriteLine($"[World] Player {msg.PlayerName} already logged in");
-                return;
+                // 기존 연결 종료 후 새로 연결 (재접속 처리)
+                Context.Stop(players[playerId]);
+                players.Remove(playerId);
             }
+
             var playerActor = Context.ActorOf(
-                Props.Create<PlayerActor>(msg.PlayerName),
-                $"player-{msg.PlayerName}");
+                Props.Create<PlayerActor>(playerId, msg.PlayerName),
+                idManager.GetActorName(playerId));
             Context.Watch(playerActor);
-            // 플레이어 목록에 저장
-            players[msg.PlayerName] = playerActor;
-            if (clientConnections.TryGetValue(msg.PlayerName, out var clientActor))
+
+            players[playerId] = playerActor;
+            nameToIdCache[msg.PlayerName.ToLower()] = playerId;
+            if (clientConnections.TryGetValue(playerId, out var clientActor))
             {
                 playerActor.Tell(new SetClientConnection(clientActor));
             }
 
-            zoneManager.Tell(new ChangeZoneRequest(playerActor, msg.PlayerName, "town"));
-            Console.WriteLine($"[World] Player {msg.PlayerName} logged in");
+            zoneManager.Tell(new ChangeZoneRequest(playerActor, playerId, msg.PlayerName, "town"));
+            Console.WriteLine($"[World] Player {msg.PlayerName} (ID:{playerId}) logged in");
+            Console.WriteLine($"[World] Total online players: {players.Count}");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[World] ERROR: Failed to create player {msg.PlayerName}: {ex.Message}");
-            if (clientConnections.TryGetValue(msg.PlayerName, out var client))
+            var playerId = idManager.GetPlayerId(msg.PlayerName);
+            if (playerId.HasValue && clientConnections.TryGetValue(playerId.Value, out var client))
             {
                 client.Tell(new LoginFailed(msg.PlayerName, ex.Message));
             }
@@ -59,7 +68,14 @@ public class WorldActor : ReceiveActor
     }
     private void HandlePlayerCommand(PlayerCommand cmd)
     {
-        if (players.TryGetValue(cmd.PlayerName, out var playerActor))
+        var playerId = idManager.GetPlayerId(cmd.PlayerName);
+        if (!playerId.HasValue)
+        {
+            Console.WriteLine($"[World] Player {cmd.PlayerName} not registered");
+            return;
+        }
+
+        if (players.TryGetValue(playerId.Value, out var playerActor))
         {
             try
             {
@@ -83,53 +99,66 @@ public class WorldActor : ReceiveActor
     }
     private void HandlePlayerDisconnect(PlayerDisconnect msg)
     {
-        if (players.TryGetValue(msg.PlayerName, out var playerActor))
+        var playerId = idManager.GetPlayerId(msg.PlayerName);
+        if (!playerId.HasValue)
+        {
+            Console.WriteLine($"[World] Unknown player disconnect: {msg.PlayerName}");
+            return;
+        }
+        if (players.TryGetValue(playerId.Value, out var playerActor))
         {
             Context.Unwatch(playerActor);
-            // Zone 제거는 ZoneManager 처리
             Context.Stop(playerActor);
-            players.Remove(msg.PlayerName);
-            clientConnections.Remove(msg.PlayerName);
 
-            Console.WriteLine($"[World] Player {msg.PlayerName} disconnected");
+            players.Remove(playerId.Value);
+            clientConnections.Remove(playerId.Value);
+            nameToIdCache.Remove(msg.PlayerName.ToLower());
+
+            Console.WriteLine($"[World] Player {msg.PlayerName} (ID:{playerId}) disconnected");
+            Console.WriteLine($"[World] Remaining online players: {players.Count}");
         }
     }
     private void HandleRegisterClient(RegisterClientConnection msg)
     {
-        clientConnections[msg.PlayerName] = msg.ClientActor;
+        var playerId = idManager.GetOrCreatePlayerId(msg.PlayerName);
+        clientConnections[playerId] = msg.ClientActor;
         Console.WriteLine($"[World] Client connection registered for {msg.PlayerName}");
-        if (players.TryGetValue(msg.PlayerName, out var playerActor))
+        if (players.TryGetValue(playerId, out var playerActor))
         {
             playerActor.Tell(new SetClientConnection(msg.ClientActor));
             Console.WriteLine($"[World] Client connection sent to PlayerActor for {msg.PlayerName}");
         }
-
     }
     private void HandleTerminated(Terminated terminated)
     {
         var playerEntry = players.FirstOrDefault(x => x.Value.Equals(terminated.ActorRef));
-        if (!string.IsNullOrEmpty(playerEntry.Key))
+        if (playerEntry.Key == 0)
         {
-            var playerName = playerEntry.Key;
-            Console.WriteLine($"[World] TERMINATED: Player {playerName} actor has been terminated");
+            return;
+        }
 
-            if (ShouldRecreatePlayer(playerName))
-            {
-                Console.WriteLine($"[World] Attempting to recreate player {playerName}...");
-                HandlePlayerLogin(new PlayerLoginRequest(playerName));
-            }
-            else
-            {
-                players.Remove(playerName);
-                clientConnections.Remove(playerName);
-            }
+        var playerId = playerEntry.Key;
+        var playerName = idManager.GetPlayerName(playerId) ?? "Unknown";
+        Console.WriteLine($"[World] TERMINATED: Player {playerName} (ID:{playerId}) actor has been terminated");
+
+        if (ShouldRecreatePlayer(playerId))
+        {
+            Console.WriteLine($"[World] Attempting to recreate player {playerName} (ID:{playerId})...");
+            HandlePlayerLogin(new PlayerLoginRequest(playerName));
+        }
+        else
+        {
+            players.Remove(playerId);
+            clientConnections.Remove(playerId);
+            nameToIdCache.Remove(playerName.ToLower());
         }
     }
     private void HandleTestSupervision(TestSupervision test)
     {
         Console.WriteLine($"\n[World] === Starting Supervision Test: {test.TestType} ===");
 
-        if (!players.TryGetValue(test.PlayerName, out var playerActor))
+        var playerId = idManager.GetPlayerId(test.PlayerName);
+        if (!playerId.HasValue || !players.TryGetValue(playerId.Value, out var playerActor))
         {
             Console.WriteLine($"[World] Test failed: Player {test.PlayerName} not found");
             return;
@@ -158,19 +187,26 @@ public class WorldActor : ReceiveActor
                 break;
         }
     }
-    private bool ShouldRecreatePlayer(string playerName)
+    private bool ShouldRecreatePlayer(long playerId)
     {
-        return clientConnections.ContainsKey(playerName);
+        return clientConnections.ContainsKey(playerId);
     }
     private void HandleZoneChangeRequest(RequestZoneChange msg)
     {
-        if (players.TryGetValue(msg.PlayerName, out var playerActor))
+        var playerId = idManager.GetPlayerId(msg.PlayerName);
+        if (!playerId.HasValue)
         {
-            zoneManager.Tell(new ChangeZoneRequest(playerActor, msg.PlayerName, msg.TargetZoneId));
+            Console.WriteLine($"[World] Unknown player for zone change: {msg.PlayerName}");
+            return;
+        }
+
+        if (players.TryGetValue(playerId.Value, out var playerActor))
+        {
+            zoneManager.Tell(new ChangeZoneRequest(playerActor, playerId.Value, msg.PlayerName, msg.TargetZoneId));
         }
         else
         {
-            Console.WriteLine($"[World] Player {msg.PlayerName} not found for zone change");
+            Console.WriteLine($"[World] Player {msg.PlayerName} (ID:{playerId}) not found for zone change");
         }
     }
 }

@@ -89,6 +89,7 @@ public class ZoneManager : ReceiveActor
     private void HandleChangeZoneRequest(ChangeZoneRequest msg)
     {
         var playerActor = msg.PlayerActor;
+        var playerId = msg.PlayerId;
         var targetZoneId = msg.TargetZoneId;
         var playerName = msg.PlayerName;
 
@@ -104,13 +105,13 @@ public class ZoneManager : ReceiveActor
         {
             if (_zones.TryGetValue(currentZoneId, out var currentZone))
             {
-                currentZone.Tell(new RemovePlayerFromZone(playerActor));
+                currentZone.Tell(new RemovePlayerFromZone(playerActor, playerId));
             }
         }
 
         // 새 Zone에 추가
         var newZone = _zones[targetZoneId];
-        newZone.Tell(new AddPlayerToZone(playerActor, playerName));
+        newZone.Tell(new AddPlayerToZone(playerActor, playerId, playerName));
 
         // 플레이어-Zone 매핑 업데이트
         _playerZoneMap[playerName] = targetZoneId;
