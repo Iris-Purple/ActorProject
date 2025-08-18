@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="Akka" Version="1.5.46" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
   </ItemGroup>
 
 </Project>

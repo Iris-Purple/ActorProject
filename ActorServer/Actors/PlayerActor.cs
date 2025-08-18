@@ -1,6 +1,7 @@
 using Akka.Actor;
 using ActorServer.Messages;
 using ActorServer.Exceptions;
+using ActorServer.Database;
 
 namespace ActorServer.Actors;
 
@@ -22,6 +23,7 @@ public class PlayerActor : ReceiveActor
     // 에러 처리를 위한 상태
     private int errorCount = 0;
     private DateTime lastErrorTime = DateTime.Now;
+    private readonly SimpleDatabase _db = SimpleDatabase.Instance;
 
     public PlayerActor(long playerId, string playerName)
     {
@@ -54,6 +56,8 @@ public class PlayerActor : ReceiveActor
         Receive<TestNullCommand>(HandleTestNullCommand);
         Receive<SimulateCrash>(HandleSimulateCrash);
         Receive<SimulateOutOfMemory>(HandleSimulateOutOfMemory);
+
+        Receive<string>(s => s == "save", _ => SaveToDatabase());
     }
 
     #region 이동 관련 핸들러
@@ -74,6 +78,7 @@ public class PlayerActor : ReceiveActor
             currentPosition = cmd.NewPosition;
 
             Console.WriteLine($"[Player-{playerId}:{playerName}] Moving from ({oldPosition.X:F1}, {oldPosition.Y:F1}) to ({currentPosition.X:F1}, {currentPosition.Y:F1})");
+            SaveToDatabase();
 
             currentZone?.Tell(new PlayerMovement(Self, currentPosition));
             clientConnection?.Tell(new ChatToClient("System",
@@ -318,19 +323,23 @@ public class PlayerActor : ReceiveActor
     protected override void PreStart()
     {
         Console.WriteLine($"[Player-{playerId}:{playerName}] Actor starting...");
-        Console.WriteLine($"  Actor Path: {Self.Path}");
-        Console.WriteLine($"  Player ID: {playerId}");
-        Console.WriteLine($"  Player Name: {playerName}");
+        var saved = _db.LoadPlayer(playerId);
+        if (saved.HasValue)
+        {
+            currentPosition = new Position(saved.Value.x, saved.Value.y);
+            currentZoneId = saved.Value.zone;
+            Console.WriteLine($"[Player-{playerId}:{playerName}] Restored position from DB");
+        }
+
         base.PreStart();
     }
 
     protected override void PostStop()
     {
+        SaveToDatabase();
         Console.WriteLine($"[Player-{playerId}:{playerName}] Actor stopped. Total errors: {errorCount}");
-
         clientConnection?.Tell(new ChatToClient("System", "Player actor stopped"));
         currentZone?.Tell(new RemovePlayerFromZone(Self, this.playerId));
-
         base.PostStop();
     }
 
@@ -349,4 +358,9 @@ public class PlayerActor : ReceiveActor
     }
 
     #endregion
+
+    private void SaveToDatabase()
+    {
+        _db.SavePlayer(playerId, playerName, currentPosition.X, currentPosition.Y, currentZoneId);
+    }
 }
