@@ -5,3 +5,7 @@ ActorServer/obj/
 ActorClient/.vscode/
 ActorClient/bin/
 ActorClient/obj/
+
+ActorServer.Tests/.vscode/
+ActorServer.Tests/bin/
+ActorServer.Tests/obj/

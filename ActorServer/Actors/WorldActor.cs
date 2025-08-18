@@ -79,11 +79,13 @@ public class WorldActor : ReceiveActor
         {
             try
             {
+                /*
                 if (cmd.Command == null)
                 {
                     throw new ArgumentNullException(nameof(cmd.Command),
                         $"Command isnull for player {cmd.PlayerName}");
                 }
+                */
                 playerActor.Tell(cmd.Command);
             }
             catch (Exception ex)
