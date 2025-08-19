@@ -34,12 +34,12 @@ public class WorldActor : ReceiveActor
             var playerId = idManager.GetOrCreatePlayerId(msg.PlayerName);
             if (players.ContainsKey(playerId))
             {
-                Console.WriteLine($"[World] Player {msg.PlayerName} already logged in");
+                Console.WriteLine($"[World] Player {msg.PlayerName} (ID:{playerId}) reconnecting...");
                 // 기존 연결 종료 후 새로 연결 (재접속 처리)
                 Context.Stop(players[playerId]);
                 players.Remove(playerId);
+                Thread.Sleep(100);
             }
-
             var playerActor = Context.ActorOf(
                 Props.Create<PlayerActor>(playerId, msg.PlayerName),
                 idManager.GetActorName(playerId));
@@ -79,13 +79,6 @@ public class WorldActor : ReceiveActor
         {
             try
             {
-                /*
-                if (cmd.Command == null)
-                {
-                    throw new ArgumentNullException(nameof(cmd.Command),
-                        $"Command isnull for player {cmd.PlayerName}");
-                }
-                */
                 playerActor.Tell(cmd.Command);
             }
             catch (Exception ex)
@@ -116,6 +109,8 @@ public class WorldActor : ReceiveActor
             clientConnections.Remove(playerId.Value);
             nameToIdCache.Remove(msg.PlayerName.ToLower());
 
+            idManager.RemoveFromCache(playerId.Value);
+
             Console.WriteLine($"[World] Player {msg.PlayerName} (ID:{playerId}) disconnected");
             Console.WriteLine($"[World] Remaining online players: {players.Count}");
         }
@@ -124,7 +119,9 @@ public class WorldActor : ReceiveActor
     {
         var playerId = idManager.GetOrCreatePlayerId(msg.PlayerName);
         clientConnections[playerId] = msg.ClientActor;
+
         Console.WriteLine($"[World] Client connection registered for {msg.PlayerName}");
+
         if (players.TryGetValue(playerId, out var playerActor))
         {
             playerActor.Tell(new SetClientConnection(msg.ClientActor));
@@ -153,6 +150,7 @@ public class WorldActor : ReceiveActor
             players.Remove(playerId);
             clientConnections.Remove(playerId);
             nameToIdCache.Remove(playerName.ToLower());
+            idManager.RemoveFromCache(playerId);
         }
     }
     private void HandleTestSupervision(TestSupervision test)

@@ -9,10 +9,10 @@ public class PlayerActor : ReceiveActor
 {
     // 플레이어 식별자
     private readonly long playerId;          // 고유 ID (Primary Key)
-    private string playerName;               // 표시 이름
+    private string playerName;
 
     // 플레이어 상태
-    private Position currentPosition;
+    private Position currentPosition = new Position(0, 0);  // ⭐ 기본값으로 초기화
     private IActorRef? currentZone;
     private IActorRef? clientConnection;
     private string currentZoneId = "town";
@@ -29,8 +29,8 @@ public class PlayerActor : ReceiveActor
     {
         this.playerId = playerId;
         this.playerName = playerName;
-        currentPosition = new Position(0, 0);
 
+        LoadFromDatabase();
         Console.WriteLine($"[PlayerActor] Creating actor for {playerName} (ID:{playerId})");
 
         // ===== 일반 게임 메시지 핸들러 =====
@@ -58,6 +58,23 @@ public class PlayerActor : ReceiveActor
         Receive<SimulateOutOfMemory>(HandleSimulateOutOfMemory);
 
         Receive<string>(s => s == "save", _ => SaveToDatabase());
+    }
+    private void LoadFromDatabase()
+    {
+        var loadPlayerData = _db.LoadPlayerData(playerId);
+        if (loadPlayerData != null)
+        {
+            currentPosition = new Position(loadPlayerData.X, loadPlayerData.Y);
+            currentZoneId = loadPlayerData.ZoneId;
+            Console.WriteLine($"[PlayerActor] Load player: {playerName} (ID:{playerId})");
+        }
+        else
+        {
+            // new player
+            currentPosition = new Position(0, 0);
+            currentZoneId = "town";
+            Console.WriteLine($"[PlayerActor] New player: {playerName} (ID:{playerId})");
+        }
     }
 
     #region 이동 관련 핸들러
@@ -147,9 +164,9 @@ public class PlayerActor : ReceiveActor
             currentZoneId = msg.Message;
             Console.WriteLine($"[Player-{playerId}:{playerName}] Successfully changed zone to: {currentZoneId}");
 
+            SaveToDatabase();
             // 이전 Zone의 플레이어 목록 클리어
             otherPlayers.Clear();
-
             // 클라이언트에게 알림
             clientConnection?.Tell(msg);
         }
@@ -323,20 +340,11 @@ public class PlayerActor : ReceiveActor
     protected override void PreStart()
     {
         Console.WriteLine($"[Player-{playerId}:{playerName}] Actor starting...");
-        var saved = _db.LoadPlayer(playerId);
-        if (saved.HasValue)
-        {
-            currentPosition = new Position(saved.Value.x, saved.Value.y);
-            currentZoneId = saved.Value.zone;
-            Console.WriteLine($"[Player-{playerId}:{playerName}] Restored position from DB");
-        }
-
         base.PreStart();
     }
 
     protected override void PostStop()
     {
-        SaveToDatabase();
         Console.WriteLine($"[Player-{playerId}:{playerName}] Actor stopped. Total errors: {errorCount}");
         clientConnection?.Tell(new ChatToClient("System", "Player actor stopped"));
         currentZone?.Tell(new RemovePlayerFromZone(Self, this.playerId));
@@ -354,6 +362,8 @@ public class PlayerActor : ReceiveActor
     protected override void PostRestart(Exception reason)
     {
         Console.WriteLine($"[Player-{playerId}:{playerName}] POST-RESTART completed");
+
+        LoadFromDatabase();
         base.PostRestart(reason);
     }
 
