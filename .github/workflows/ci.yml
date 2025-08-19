@@ -12,11 +12,9 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    # ⭐ v4로 업데이트
     - name: 📥 Checkout code
       uses: actions/checkout@v4
     
-    # ⭐ v4로 업데이트
     - name: 🔧 Setup .NET 9
       uses: actions/setup-dotnet@v4
       with:
@@ -28,29 +26,23 @@ jobs:
     - name: 🏗️ Build Solution
       run: dotnet build --configuration Release --no-restore
     
+    # ⭐ 중요: --configuration Release 추가
     - name: 🧪 Run Unit Tests
       run: |
         echo "Running Unit Tests..."
-        dotnet test --no-build --filter "FullyQualifiedName~Unit" --logger "console;verbosity=normal"
+        dotnet test --no-build --configuration Release --filter "FullyQualifiedName~Unit" --logger "console;verbosity=normal"
     
+    # ⭐ 중요: --configuration Release 추가
     - name: 🔌 Run Integration Tests  
       run: |
         echo "Running Integration Tests..."
-        dotnet test --no-build --filter "FullyQualifiedName~Integration" --logger "console;verbosity=normal"
+        dotnet test --no-build --configuration Release --filter "FullyQualifiedName~Integration" --logger "console;verbosity=normal"
     
-    - name: 📊 Run All Tests with Coverage (Optional)
+    # ⭐ 중요: --configuration Release 추가
+    - name: 📊 Run All Tests
       run: |
-        dotnet test --no-build \
-          --collect:"XPlat Code Coverage" \
-          --results-directory ./coverage
-    
-    # ⭐ v4로 업데이트
-    - name: 📈 Upload Coverage Reports
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: coverage-report
-        path: coverage/
+        echo "Running All Tests..."
+        dotnet test --no-build --configuration Release --logger "console;verbosity=normal"
     
     - name: ✅ Test Summary
       if: always()
