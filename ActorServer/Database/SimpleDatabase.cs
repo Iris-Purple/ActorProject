@@ -4,63 +4,29 @@ namespace ActorServer.Database;
 
 public class SimpleDatabase
 {
-    private static SimpleDatabase? _instance;
-    private static readonly object _lock = new object(); // ⭐ 스레드 안전성
-    
-    public static SimpleDatabase Instance 
-    {
-        get
-        {
-            lock (_lock) // ⭐ 동기화
-            {
-                if (_instance == null)
-                {
-                    Console.WriteLine("[DB] Creating new SimpleDatabase instance");
-                    _instance = new SimpleDatabase();
-                }
-                return _instance;
-            }
-        }
-    }
-    
+    public static readonly SimpleDatabase Instance = new SimpleDatabase();
     private readonly string _dbPath;
-    
+    // ⭐ 프로덕션용 기본 생성자
     private SimpleDatabase() : this("game.db") { }
-    
+    // ⭐ 테스트용 내부 생성자
     internal SimpleDatabase(string dbPath)
     {
         _dbPath = dbPath;
         InitializeDatabase();
     }
     
-    // ⭐ 테스트용 초기화 메서드 (인스턴스 교체)
-    public static void InitializeForTesting(string testDbPath)
+    // ⭐ 테스트용 별도 인스턴스 생성 메서드
+    public static SimpleDatabase CreateForTesting(string testDbPath)
     {
-        lock (_lock)
+        // 기존 테스트 DB 파일 삭제
+        if (File.Exists(testDbPath))
         {
-            // 기존 인스턴스 제거
-            _instance = null;
-            
-            // 테스트용 DB 파일 삭제
-            if (File.Exists(testDbPath))
-            {
-                File.Delete(testDbPath);
-            }
-            
-            // 새 인스턴스 생성
-            Console.WriteLine($"[DB] Initializing test database: {testDbPath}");
-            _instance = new SimpleDatabase(testDbPath);
+            File.Delete(testDbPath);
+            Console.WriteLine($"[DB] Deleted existing test DB: {testDbPath}");
         }
-    }
-    
-    // ⭐ 테스트 후 정리
-    public static void ResetInstance()
-    {
-        lock (_lock)
-        {
-            Console.WriteLine("[DB] Resetting SimpleDatabase instance");
-            _instance = null;
-        }
+        
+        Console.WriteLine($"[DB] Creating test database: {testDbPath}");
+        return new SimpleDatabase(testDbPath);
     }
     
     private void InitializeDatabase()
@@ -80,8 +46,6 @@ public class SimpleDatabase
         cmd.ExecuteNonQuery();
         Console.WriteLine($"[DB] Database initialized: {_dbPath}");
     }
-    
-    // ⭐ 저장 (단순하게)
     public void SavePlayer(long playerId, string name, float x, float y, string zone)
     {
         using var conn = new SqliteConnection($"Data Source={_dbPath}");
@@ -102,7 +66,6 @@ public class SimpleDatabase
         Console.WriteLine($"[DB] Saved: {name} at ({x:F1},{y:F1}) in {zone}");
     }
     
-    // ⭐ 로드 (단순하게)
     public (float x, float y, string zone)? LoadPlayer(long playerId)
     {
         using var conn = new SqliteConnection($"Data Source={_dbPath}");
@@ -125,6 +88,5 @@ public class SimpleDatabase
         return null;
     }
     
-    // ⭐ 디버깅용 메서드
     public string GetDbPath() => _dbPath;
 }

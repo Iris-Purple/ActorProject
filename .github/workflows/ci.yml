@@ -1,0 +1,58 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v3
+    
+    - name: 🔧 Setup .NET 9
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '9.0.x'
+    
+    - name: 📦 Restore dependencies
+      run: dotnet restore
+    
+    - name: 🏗️ Build Solution
+      run: dotnet build --configuration Release --no-restore
+    
+    - name: 🧪 Run Unit Tests
+      run: |
+        echo "Running Unit Tests..."
+        dotnet test --no-build --filter "FullyQualifiedName~Unit" --logger "console;verbosity=normal"
+    
+    - name: 🔌 Run Integration Tests  
+      run: |
+        echo "Running Integration Tests..."
+        dotnet test --no-build --filter "FullyQualifiedName~Integration" --logger "console;verbosity=normal"
+    
+    - name: 📊 Run All Tests with Coverage (Optional)
+      run: |
+        dotnet test --no-build \
+          --collect:"XPlat Code Coverage" \
+          --results-directory ./coverage
+    
+    - name: 📈 Upload Coverage Reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: coverage-report
+        path: coverage/
+    
+    - name: ✅ Test Summary
+      if: always()
+      run: |
+        echo "========================================="
+        echo "  Test execution completed!"
+        echo "  Check the Actions tab for details"
+        echo "========================================="

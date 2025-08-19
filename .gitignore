@@ -1,3 +1,10 @@
+*.db
+
+# 테스트 결과 파일 제외
+*.trx
+TestResults/
+coverage/
+
 ActorServer/.vscode/
 ActorServer/bin/
 ActorServer/obj/
