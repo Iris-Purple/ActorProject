@@ -16,7 +16,6 @@ jobs:
       DOTNET_NOLOGO: true
       DOTNET_CLI_TELEMETRY_OPTOUT: true
 
-    
     steps:
     - name: 📥 Checkout code
       uses: actions/checkout@v4
@@ -32,23 +31,17 @@ jobs:
     - name: 🏗️ Build Solution
       run: dotnet build --configuration Release --no-restore
     
-    # ⭐ 중요: --configuration Release 추가
-    - name: 🧪 Run Unit Tests
+    # 추가: AuthServer 테스트
+    - name: 🔐 Run AuthServer Tests
       run: |
-        echo "Running Unit Tests..."
-        dotnet test --no-build --configuration Release --filter "FullyQualifiedName~Unit" --logger "console;verbosity=normal"
+        echo "Running AuthServer Tests..."
+        dotnet test Test/AuthServer.Tests --no-build --configuration Release --logger "console;verbosity=normal"
     
-    # ⭐ 중요: --configuration Release 추가
-    - name: 🔌 Run Integration Tests  
+    # 기존: ActorServer 테스트
+    - name: 🎮 Run ActorServer Tests  
       run: |
-        echo "Running Integration Tests..."
-        dotnet test --no-build --configuration Release --filter "FullyQualifiedName~Integration" --logger "console;verbosity=normal"
-    
-    # ⭐ 중요: --configuration Release 추가
-    - name: 📊 Run All Tests
-      run: |
-        echo "Running All Tests..."
-        dotnet test --no-build --configuration Release --logger "console;verbosity=normal"
+        echo "Running ActorServer Tests..."
+        dotnet test Test/ActorServer.Tests --no-build --configuration Release --logger "console;verbosity=normal"
     
     - name: ✅ Test Summary
       if: always()

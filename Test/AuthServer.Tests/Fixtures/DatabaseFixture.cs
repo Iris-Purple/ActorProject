@@ -1,7 +1,6 @@
-using ActorServer.Database;
 using Xunit;
 
-namespace ActorServer.Tests.Fixtures;
+namespace AuthServer.Tests.Fixtures;
 
 public class DatabaseFixture : IDisposable
 {
@@ -9,12 +8,11 @@ public class DatabaseFixture : IDisposable
     
     public DatabaseFixture()
     {
-        // 테스트 환경 변수 설정 (선택적 - 자동 감지도 작동)
         Environment.SetEnvironmentVariable("TEST_ENVIRONMENT", "true");
 
         TestDbPath = "test_collection.db";
         Console.WriteLine($"[FIXTURE] Initializing test database: {TestDbPath}");
-        // 기존 파일 있으면 삭제
+        
         if (File.Exists(TestDbPath))
         {
             try
@@ -27,10 +25,6 @@ public class DatabaseFixture : IDisposable
                 Console.WriteLine($"[FIXTURE] Could not delete existing DB: {ex.Message}");
             }
         }
-        
-        // 첫 접근 시 초기화됨
-        var db = SimpleDatabase.Instance;
-        Console.WriteLine($"[FIXTURE] Database initialized: {db.GetDbPath()}");
     }
     
     public void Dispose()
@@ -43,7 +37,6 @@ public class DatabaseFixture : IDisposable
         {
             try
             {
-                // SQLite 연결이 남아있을 수 있으므로 GC 강제 실행
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
                 GC.Collect();

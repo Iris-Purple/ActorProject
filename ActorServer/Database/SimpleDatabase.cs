@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using Common.Database;
 
 namespace ActorServer.Database;
 
@@ -33,7 +34,7 @@ public class SimpleDatabase
         
         // 3. 프로덕션 환경
         Console.WriteLine("[DB] Production environment");
-        return "game.db";
+        return DatabaseConfig.ConnectionString;
     }
     
     private SimpleDatabase(string dbPath)

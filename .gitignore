@@ -13,6 +13,25 @@ ActorClient/.vscode/
 ActorClient/bin/
 ActorClient/obj/
 
-ActorServer.Tests/.vscode/
-ActorServer.Tests/bin/
-ActorServer.Tests/obj/
+AuthServer/.vscode/
+AuthServer/bin/
+AuthServer/obj/
+
+# 테스트 프로젝트 빌드 출력
+Test/**/bin/
+Test/**/obj/
+Test/**/.vscode/
+
+
+
+# 데이터베이스 파일
+Database/*.db
+Database/*.db-shm
+Database/*.db-wal
+
+# 테스트 DB는 제외
+*.db
+*.db-shm
+*.db-wal
+!test_collection.db
+
