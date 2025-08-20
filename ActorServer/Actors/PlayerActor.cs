@@ -12,7 +12,7 @@ public class PlayerActor : ReceiveActor
     private string playerName;
 
     // 플레이어 상태
-    private Position currentPosition = new Position(0, 0);  // ⭐ 기본값으로 초기화
+    private Position currentPosition = new Position(0, 0);  // 기본값으로 초기화
     private IActorRef? currentZone;
     private IActorRef? clientConnection;
     private string currentZoneId = "town";
