@@ -45,7 +45,9 @@ public class AccountDatabase
                 CREATE TABLE IF NOT EXISTS accounts (
                     account_id TEXT PRIMARY KEY NOT NULL,
                     created_at TEXT NOT NULL,
-                    last_login_at TEXT NOT NULL
+                    last_login_at TEXT NOT NULL,
+                    token TEXT,
+                    token_expires_at TEXT
                 )";
             command.ExecuteNonQuery();
 
@@ -61,7 +63,7 @@ public class AccountDatabase
     /// <summary>
     /// 로그인 처리 - 계정이 없으면 생성, 있으면 로그인
     /// </summary>
-    public async Task<LoginResponse> ProcessLoginAsync(string accountId, string? clientIp)
+    public async Task<LoginResponse> ProcessLoginAsync(string accountId)
     {
         using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync();
@@ -73,12 +75,14 @@ public class AccountDatabase
         {
             // 1. 기존 계정 확인
             var existingAccount = await GetAccountAsync(connection, accountId);
+            var token = GenerateSecureToken(accountId);
+            var tokenExpiresAt = DateTime.UtcNow.AddSeconds(60);
 
             if (existingAccount != null)
             {
                 // 2-1. 기존 계정 로그인 처리
                 var lastLogin = existingAccount.LastLoginAt;
-                await UpdateLoginInfoAsync(connection, accountId);
+                await UpdateLoginInfoAsync(connection, accountId, token, tokenExpiresAt);
 
                 transaction.Commit();
 
@@ -90,13 +94,13 @@ public class AccountDatabase
                     Message = "Login successful",
                     IsNewAccount = false,
                     LastLoginAt = lastLogin,
-                    Token = GenerateSimpleToken(accountId)
+                    Token = token
                 };
             }
             else
             {
                 // 2-2. 신규 계정 생성
-                await CreateAccountAsync(connection, accountId);
+                await CreateAccountAsync(connection, accountId, token, tokenExpiresAt);
 
                 transaction.Commit();
 
@@ -107,7 +111,7 @@ public class AccountDatabase
                     Success = true,
                     Message = "New account created successfully",
                     IsNewAccount = true,
-                    Token = GenerateSimpleToken(accountId)
+                    Token = token
                 };
             }
         }
@@ -131,10 +135,11 @@ public class AccountDatabase
     {
         var command = connection.CreateCommand();
         command.CommandText = @"
-            SELECT account_id, created_at, last_login_at
+            SELECT account_id, created_at, last_login_at, token, token_expires_at
             FROM accounts
             WHERE account_id = @accountId";
         command.Parameters.AddWithValue("@accountId", accountId);
+
         using var reader = await command.ExecuteReaderAsync();
         if (await reader.ReadAsync())
         {
@@ -143,6 +148,8 @@ public class AccountDatabase
                 AccountId = reader.GetString(0),
                 CreatedAt = DateTime.Parse(reader.GetString(1)),
                 LastLoginAt = DateTime.Parse(reader.GetString(2)),
+                Token = reader.IsDBNull(3) ? null : reader.GetString(3),
+                TokenExpiresAt = reader.IsDBNull(4) ? null : DateTime.Parse(reader.GetString(4))
             };
         }
 
@@ -152,17 +159,20 @@ public class AccountDatabase
     /// <summary>
     /// 신규 계정 생성
     /// </summary>
-    private async Task CreateAccountAsync(SqliteConnection connection, string accountId)
+    private async Task CreateAccountAsync(SqliteConnection connection, string accountId, string token, DateTime tokenExpiresAt)
     {
         var now = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
+        var expiresAt = tokenExpiresAt.ToString("yyyy-MM-dd HH:mm:ss");
 
         var command = connection.CreateCommand();
         command.CommandText = @"
-            INSERT INTO accounts (account_id, created_at, last_login_at)
-            VALUES (@accountId, @now, @now)";
+            INSERT INTO accounts (account_id, created_at, last_login_at, token, token_expires_at)
+            VALUES (@accountId, @now, @now, @token, @expiresAt)";
 
         command.Parameters.AddWithValue("@accountId", accountId);
         command.Parameters.AddWithValue("@now", now);
+        command.Parameters.AddWithValue("@token", token);
+        command.Parameters.AddWithValue("@expiresAt", expiresAt);
 
         await command.ExecuteNonQueryAsync();
     }
@@ -170,29 +180,52 @@ public class AccountDatabase
     /// <summary>
     /// 로그인 정보 업데이트
     /// </summary>
-    private async Task UpdateLoginInfoAsync(SqliteConnection connection, string accountId)
+    private async Task UpdateLoginInfoAsync(SqliteConnection connection, string accountId, string token, DateTime tokenExpiresAt)
     {
         var command = connection.CreateCommand();
         command.CommandText = @"
             UPDATE accounts 
-            SET last_login_at = @now
+            SET last_login_at = @now,
+                token = @token,
+                token_expires_at = @expiresAt
             WHERE account_id = @accountId";
 
         command.Parameters.AddWithValue("@accountId", accountId);
         command.Parameters.AddWithValue("@now", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"));
-
+        command.Parameters.AddWithValue("@token", token);
+        command.Parameters.AddWithValue("@expiresAt", tokenExpiresAt.ToString("yyyy-MM-dd HH:mm:ss"));
 
         await command.ExecuteNonQueryAsync();
     }
 
-    /// <summary>
-    /// 간단한 토큰 생성 (나중에 JWT로 교체 가능)
-    /// </summary>
-    private string GenerateSimpleToken(string accountId)
+    private string GenerateSecureToken(string accountId)
     {
         var tokenData = $"{accountId}:{DateTime.UtcNow.Ticks}";
         return Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(tokenData));
     }
+
+
+    public async Task<bool> ValidateTokenAsync(string accountId, string token)
+    {
+        using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync();
+
+        var command = connection.CreateCommand();
+        command.CommandText = @"
+            SELECT token_expires_at 
+            FROM accounts 
+            WHERE account_id = @accountId AND token = @token";
+
+        command.Parameters.AddWithValue("@accountId", accountId);
+        command.Parameters.AddWithValue("@token", token);
+
+        var result = await command.ExecuteScalarAsync();
+        if (result == null) return false;
+
+        var expiresAt = DateTime.Parse(result.ToString()!);
+        return expiresAt > DateTime.UtcNow;
+    }
+
 
     public string GetDbPath() => _connectionString.Replace("Data Source=", "");
 

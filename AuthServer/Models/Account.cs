@@ -8,6 +8,8 @@ public class Account
     public string AccountId { get; set; } = "";  // 유니크한 계정 ID (로그인용)
     public DateTime CreatedAt { get; set; }      // 계정 생성 시간
     public DateTime LastLoginAt { get; set; }    // 마지막 로그인 시간
+    public string? Token { get; set; }
+    public DateTime? TokenExpiresAt { get; set; }
 }
 
 /// <summary>

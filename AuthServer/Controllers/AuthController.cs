@@ -53,7 +53,7 @@ public class AuthController : ControllerBase
         _logger.LogInformation("Login attempt for account {AccountId}", request.AccountId);
         
         // 3. 로그인 처리 (변경: clientIp 파라미터 제거)
-        var result = await _accountDb.ProcessLoginAsync(request.AccountId, null);
+        var result = await _accountDb.ProcessLoginAsync(request.AccountId);
         
         // 4. 응답 반환
         if (result.Success)
