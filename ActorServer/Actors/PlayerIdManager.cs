@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using Akka.Actor;
-using ActorServer.Database;
+using Common.Database;
 
 namespace ActorServer.Actors;
 
@@ -11,7 +11,7 @@ public class PlayerIdManager
     // ⭐ 메모리 캐시만 유지 (파일 제거)
     private readonly ConcurrentDictionary<long, string> _idToName = new();
     private readonly ConcurrentDictionary<string, long> _nameToId = new();
-    private readonly SimpleDatabase _db = SimpleDatabase.Instance;
+    private readonly PlayerDatabase _db = PlayerDatabase.Instance;
 
     private PlayerIdManager()
     {

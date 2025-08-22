@@ -1,12 +1,11 @@
 using Microsoft.Data.Sqlite;
-using Common.Database;
 
-namespace ActorServer.Database;
+namespace Common.Database;
 
-public class SimpleDatabase
+public class PlayerDatabase
 {
     // 환경에 따라 자동으로 DB 선택
-    public static readonly SimpleDatabase Instance = new SimpleDatabase(GetDatabasePath());
+    public static readonly PlayerDatabase Instance = new PlayerDatabase(GetDatabasePath());
     private readonly string _dbPath;
     // 환경 감지 - xUnit 실행 여부 확인
     private static string GetDatabasePath()
@@ -37,7 +36,7 @@ public class SimpleDatabase
         return DatabaseConfig.ConnectionString;
     }
     
-    private SimpleDatabase(string dbPath)
+    private PlayerDatabase(string dbPath)
     {
         _dbPath = dbPath;
         Console.WriteLine($"[DB] Initializing database: {dbPath}");

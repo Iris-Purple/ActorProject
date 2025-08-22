@@ -1,18 +1,18 @@
-using ActorServer.Database;
 using ActorServer.Tests.Fixtures;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Xunit;
+using Common.Database;
 
 namespace ActorServer.Tests.Database;
 
 [Collection("Database Collection")]
-public class SimpleDatabaseTests
+public class PlayerDatabaseTests
 {
     private readonly DatabaseFixture _fixture;
     private static int _testCounter = 0;
     
-    public SimpleDatabaseTests(DatabaseFixture fixture)
+    public PlayerDatabaseTests(DatabaseFixture fixture)
     {
         _fixture = fixture;
         _testCounter++;
@@ -22,7 +22,7 @@ public class SimpleDatabaseTests
     public void Should_Use_Test_Database()
     {
         // 테스트 환경에서는 자동으로 test_collection.db 사용
-        var db = SimpleDatabase.Instance;
+        var db = PlayerDatabase.Instance;
         
         // Assert
         db.GetDbPath().Should().Be("test_collection.db");
@@ -33,7 +33,7 @@ public class SimpleDatabaseTests
     public void Should_Auto_Generate_Player_Id()
     {
         // SimpleDatabase.Instance 직접 사용 (test_collection.db)
-        var db = SimpleDatabase.Instance;
+        var db = PlayerDatabase.Instance;
         var playerName = $"AutoPlayer{_testCounter}";
         
         // Act
@@ -49,7 +49,7 @@ public class SimpleDatabaseTests
     [Fact]
     public void Should_Return_Same_Id_For_Existing_Player()
     {
-        var db = SimpleDatabase.Instance;
+        var db = PlayerDatabase.Instance;
         var playerName = $"ExistingPlayer{_testCounter}";
         
         // Act
@@ -63,7 +63,7 @@ public class SimpleDatabaseTests
     [Fact]
     public void Should_Load_Complete_Player_Data()
     {
-        var db = SimpleDatabase.Instance;
+        var db = PlayerDatabase.Instance;
         var playerName = $"CompletePlayer{_testCounter}";
         
         // Act
@@ -83,7 +83,7 @@ public class SimpleDatabaseTests
     [Fact]
     public void Should_Get_Player_Name_By_Id()
     {
-        var db = SimpleDatabase.Instance;
+        var db = PlayerDatabase.Instance;
         var playerName = $"NameLookup{_testCounter}";
         
         // Act
@@ -97,7 +97,7 @@ public class SimpleDatabaseTests
     [Fact]
     public void Should_Track_First_And_Last_Login()
     {
-        var db = SimpleDatabase.Instance;
+        var db = PlayerDatabase.Instance;
         var playerName = $"LoginTracker{_testCounter}";
         
         // Act
@@ -134,7 +134,7 @@ public class SimpleDatabaseTests
     [Fact]
     public void Should_Save_And_Load_Player_State()
     {
-        var db = SimpleDatabase.Instance;
+        var db = PlayerDatabase.Instance;
         var playerName = $"TestPlayer{_testCounter}";
         var playerId = db.GetOrCreatePlayerId(playerName);
         

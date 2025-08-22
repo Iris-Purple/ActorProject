@@ -1,7 +1,7 @@
 using Akka.Actor;
 using ActorServer.Messages;
 using ActorServer.Exceptions;
-using ActorServer.Database;
+using Common.Database;
 
 namespace ActorServer.Actors;
 
@@ -23,7 +23,7 @@ public class PlayerActor : ReceiveActor
     // 에러 처리를 위한 상태
     private int errorCount = 0;
     private DateTime lastErrorTime = DateTime.Now;
-    private readonly SimpleDatabase _db = SimpleDatabase.Instance;
+    private readonly PlayerDatabase _db = PlayerDatabase.Instance;
 
     public PlayerActor(long playerId, string playerName)
     {
