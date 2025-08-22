@@ -21,10 +21,11 @@ public record Packet
 /// </summary>
 public record LoginPacket : Packet
 {
-    [JsonPropertyName("playerName")]
+    [JsonPropertyName("playerId")]
     public long PlayerId { get; init; }
-    public string PlayerName { get; init; } = string.Empty;
-    public string Token { get; init; } = string.Empty;
+    
+    [JsonPropertyName("token")]
+    public string Token { get; init; } = string.Empty;  // 추가: Token
     
     public LoginPacket() 
     { 
@@ -77,39 +78,6 @@ public record ZonePacket : Packet
     }
 }
 
-/// <summary>
-/// /status 명령어에 대응
-/// </summary>
-public record StatusPacket : Packet
-{
-    public StatusPacket() 
-    { 
-        Type = PacketType.Status; 
-    }
-}
-
-/// <summary>
-/// /help 명령어에 대응
-/// </summary>
-public record HelpPacket : Packet
-{
-    public HelpPacket() 
-    { 
-        Type = PacketType.Help; 
-    }
-}
-
-/// <summary>
-/// /quit 명령어에 대응
-/// </summary>
-public record QuitPacket : Packet
-{
-    public QuitPacket() 
-    { 
-        Type = PacketType.Quit; 
-    }
-}
-
 // === Server -> Client 패킷 ===
 
 /// <summary>
@@ -123,8 +91,8 @@ public record LoginResponsePacket : Packet
     [JsonPropertyName("message")]
     public string Message { get; init; } = "";
     
-    [JsonPropertyName("playerName")]
-    public string? PlayerName { get; init; }
+    [JsonPropertyName("playerId")]
+    public long PlayerId { get; init; }
     
     public LoginResponsePacket() 
     { 
@@ -138,7 +106,7 @@ public record LoginResponsePacket : Packet
 public record MoveNotificationPacket : Packet
 {
     [JsonPropertyName("playerName")]
-    public string PlayerName { get; init; } = "";
+    public long PlayerId { get; init; }
     
     [JsonPropertyName("x")]
     public float X { get; init; }

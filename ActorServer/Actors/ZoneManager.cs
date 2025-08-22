@@ -10,7 +10,7 @@ namespace ActorServer.Actors;
 public class ZoneManager : ReceiveActor
 {
     private readonly Dictionary<string, IActorRef> _zones = new();
-    private readonly Dictionary<string, string> _playerZoneMap = new(); // playerId -> zoneId
+    private readonly Dictionary<long, string> _playerZoneMap = new(); // playerId -> zoneId
     private readonly Dictionary<string, ZoneInfo> _zoneInfos = new();
 
     public ZoneManager()
@@ -91,7 +91,6 @@ public class ZoneManager : ReceiveActor
         var playerActor = msg.PlayerActor;
         var playerId = msg.PlayerId;
         var targetZoneId = msg.TargetZoneId;
-        var playerName = msg.PlayerName;
 
         // 대상 Zone이 존재하는지 확인
         if (!_zones.ContainsKey(targetZoneId))
@@ -101,7 +100,7 @@ public class ZoneManager : ReceiveActor
         }
 
         // 현재 Zone에서 제거
-        if (_playerZoneMap.TryGetValue(playerName, out var currentZoneId))
+        if (_playerZoneMap.TryGetValue(playerId, out var currentZoneId))
         {
             if (_zones.TryGetValue(currentZoneId, out var currentZone))
             {
@@ -111,14 +110,14 @@ public class ZoneManager : ReceiveActor
 
         // 새 Zone에 추가
         var newZone = _zones[targetZoneId];
-        newZone.Tell(new AddPlayerToZone(playerActor, playerId, playerName));
+        newZone.Tell(new AddPlayerToZone(playerActor, playerId));
 
         // 플레이어-Zone 매핑 업데이트
-        _playerZoneMap[playerName] = targetZoneId;
+        _playerZoneMap[playerId] = targetZoneId;
         // 성공 응답
         playerActor.Tell(new ChangeZoneResponse(true, targetZoneId));
 
-        Console.WriteLine($"[ZoneManager] Player {playerName} moved from {currentZoneId ?? "nowhere"} to {targetZoneId}");
+        Console.WriteLine($"[ZoneManager] Player {playerId} moved from {currentZoneId ?? "nowhere"} to {targetZoneId}");
     }
 
     private void HandleGetAllZones(GetAllZones msg)

@@ -8,7 +8,7 @@ namespace ActorServer.Messages;
 
 public class ZoneInfo
 {
-    public string ZoneId { get; set; } = "";
+    public string ZoneId { get; set; } = string.Empty;
     public string Name { get; set; } = "";
     public ZoneType Type { get; set; }
     public int MinLevel { get; set; }
@@ -54,7 +54,7 @@ public record ZoneStatus
 {
     public ZoneInfo ZoneInfo { get; set; } = null!;
     public int PlayerCount { get; set; }
-    public List<string> Players { get; set; } = new();
+    public List<long> Players { get; set; } = new();
 }
 
 // ============================================
@@ -71,10 +71,10 @@ public record OutOfBoundWarning(string ZoneId);
 
 public record CurrentPlayersInZone(IEnumerable<PlayerInfo> Players);
 public record PlayerJoinedZone(PlayerInfo Player);
-public record PlayerLeftZone(string PlayerName);
+public record PlayerLeftZone(long PlayerId);
 
 public record PlayerPositionUpdate(
-    string PlayerName, 
+    long PlayerId,
     Position NewPosition
 );
 
@@ -89,17 +89,9 @@ public record ZoneHealthStatus(
     int PlayerCount
 );
 
-public record PlayerInfoWithId(
-    IActorRef Actor, 
-    long PlayerId,
-    string Name, 
-    Position Position
-);
-
 public record AddPlayerToZone(
     IActorRef PlayerActor, 
-    long PlayerId,
-    string PlayerName
+    long PlayerId
 );
 
 public record RemovePlayerFromZone(
@@ -110,25 +102,5 @@ public record RemovePlayerFromZone(
 public record ChangeZoneRequest(
     IActorRef PlayerActor, 
     long PlayerId,
-    string PlayerName, 
     string TargetZoneId
-);
-
-public record CurrentPlayersInZoneWithId(
-    IEnumerable<PlayerInfoWithId> Players
-);
-
-public record PlayerJoinedZoneWithId(
-    PlayerInfoWithId Player
-);
-
-public record PlayerLeftZoneWithId(
-    long PlayerId,
-    string PlayerName
-);
-
-public record PlayerPositionUpdateWithId(
-    long PlayerId,
-    string PlayerName,
-    Position NewPosition
 );

@@ -13,7 +13,7 @@ public class PlayerActorTests : TestKit
     public void PlayerActor_Should_Move_Successfully_With_Client_Feedback()
     {
         var playerActor = Sys.ActorOf(
-            Props.Create(() => new PlayerActor(1001L, "TestPlayer")));
+            Props.Create(() => new PlayerActor(1001L)));
         var clientProbe = CreateTestProbe();
 
         playerActor.Tell(new SetClientConnection(clientProbe));
@@ -29,7 +29,7 @@ public class PlayerActorTests : TestKit
     public void PlayerActor_Should_Notify_Zone_When_Moving()
     {
         var playerActor = Sys.ActorOf(
-            Props.Create(() => new PlayerActor(1002L, "TestPlayer2")));
+            Props.Create(() => new PlayerActor(1002L)));
         var zoneProbe = CreateTestProbe();
 
         playerActor.Tell(new SetZone(zoneProbe));
@@ -44,7 +44,7 @@ public class PlayerActorTests : TestKit
     public void PlayerActor_Should_Reject_Invalid_NaN_Position()
     {
         var playerActor = Sys.ActorOf(
-            Props.Create(() => new PlayerActor(1003L, "TestPlayer3")));
+            Props.Create(() => new PlayerActor(1003L)));
         var clientProbe = CreateTestProbe();
 
         playerActor.Tell(new SetClientConnection(clientProbe));
@@ -62,7 +62,7 @@ public class PlayerActorTests : TestKit
     public void PlayerActor_Should_Reject_Too_Far_Movement()
     {
         var playerActor = Sys.ActorOf(
-            Props.Create(() => new PlayerActor(1004L, "TestPlayer4")));
+            Props.Create(() => new PlayerActor(1004L)));
         var clientProbe = CreateTestProbe();
 
         playerActor.Tell(new SetClientConnection(clientProbe));

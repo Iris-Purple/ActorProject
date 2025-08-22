@@ -32,7 +32,7 @@ public class ZoneActor : ReceiveActor
 
         var playerInfo = new PlayerInfo(
             msg.PlayerActor,
-            msg.PlayerName,
+            msg.PlayerId,
             _zoneInfo.SpawnPoint
         );
 
@@ -44,7 +44,7 @@ public class ZoneActor : ReceiveActor
         msg.PlayerActor.Tell(new SetZone(Self));
         msg.PlayerActor.Tell(new ZoneEntered(_zoneInfo));
 
-        Console.WriteLine($"[Zone-{_zoneInfo.Name}] Player {msg.PlayerName} (ID:{msg.PlayerId}) entered. ({_playersInZone.Count} players)");
+        Console.WriteLine($"[Zone-{_zoneInfo.Name}] Player (ID:{msg.PlayerId}) entered. ({_playersInZone.Count} players)");
 
         // 현재 Zone의 다른 플레이어 정보 전송
         msg.PlayerActor.Tell(new CurrentPlayersInZone(_playersInZone.Values));
@@ -60,10 +60,10 @@ public class ZoneActor : ReceiveActor
             _playersInZone.Remove(msg.PlayerActor);
             _actorToPlayerId.Remove(msg.PlayerActor);
             
-            Console.WriteLine($"[Zone-{_zoneInfo.Name}] Player {playerInfo.Name} (ID:{msg.PlayerId}) left. ({_playersInZone.Count} players)");
+            Console.WriteLine($"[Zone-{_zoneInfo.Name}] Player (ID:{msg.PlayerId}) left. ({_playersInZone.Count} players)");
 
             // 다른 모든 플레이어에게 퇴장 알림
-            BroadcastToOthers(msg.PlayerActor, new PlayerLeftZone(playerInfo.Name));
+            BroadcastToOthers(msg.PlayerActor, new PlayerLeftZone(playerInfo.PlayerId));
         }
     }
 
@@ -74,7 +74,7 @@ public class ZoneActor : ReceiveActor
             var updatedInfo = playerInfo with { Position = msg.NewPosition };
             _playersInZone[msg.PlayerActor] = updatedInfo;
 
-            Console.WriteLine($"[Zone-{_zoneInfo.Name}] {updatedInfo.Name} moved to ({msg.NewPosition.X}, {msg.NewPosition.Y})");
+            Console.WriteLine($"[Zone-{_zoneInfo.Name}] {updatedInfo.PlayerId} moved to ({msg.NewPosition.X}, {msg.NewPosition.Y})");
 
             // Zone 경계 체크
             if (!IsWithinZoneBoundary(msg.NewPosition))
@@ -84,14 +84,14 @@ public class ZoneActor : ReceiveActor
 
             // 다른 모든 플레이어에게 위치 업데이트 브로드캐스트
             BroadcastToOthers(msg.PlayerActor, 
-                new PlayerPositionUpdate(updatedInfo.Name, msg.NewPosition));
+                new PlayerPositionUpdate(updatedInfo.PlayerId, msg.NewPosition));
         }
     }
 
     private void HandleChatMessage(ChatMessage msg)
     {
-        Console.WriteLine($"[Zone-{_zoneInfo.Name}] {msg.PlayerName}: {msg.Message}");
-        var broadcast = new ChatBroadcast(msg.PlayerName, msg.Message, DateTime.Now);
+        Console.WriteLine($"[Zone-{_zoneInfo.Name}] {msg.PlayerId}: {msg.Message}");
+        var broadcast = new ChatBroadcast(msg.PlayerId, msg.Message, DateTime.Now);
         
         // 모든 플레이어에게 전송
         foreach (var player in _playersInZone.Keys)
@@ -102,13 +102,13 @@ public class ZoneActor : ReceiveActor
 
     private void HandleGetZoneStatus(GetZoneStatus msg)
     {
-        var playerNames = _playersInZone.Values.Select(p => p.Name).ToList();
+        var playerIds = _playersInZone.Values.Select(p => p.PlayerId).ToList();
         
         Sender.Tell(new ZoneStatus
         {
             ZoneInfo = _zoneInfo,
             PlayerCount = _playersInZone.Count,
-            Players = playerNames
+            Players = playerIds
         });
     }
 

@@ -10,51 +10,48 @@ namespace ActorServer.Network
 {
     public class ClientConnectionActor : ReceiveActor
     {
+        private long _playerId;
         private readonly IActorRef _connection;
         private readonly IActorRef _worldActor;
-        private string? _playerName;
         private StringBuilder _receiveBuffer = new();
-        
+
         // 추가: 패킷 핸들러 매니저와 컨텍스트
         private readonly ClientConnectionContext _context;
         private readonly PacketHandlerManager _handlerManager;
-        
+
         public ClientConnectionActor(IActorRef connection, IActorRef worldActor)
         {
             _connection = connection;
             _worldActor = worldActor;
-            
+
             // 추가: 컨텍스트와 핸들러 매니저 초기화
             _context = new ClientConnectionContext(connection, worldActor, Self);
             _handlerManager = new PacketHandlerManager(_context);
 
             // 웰컴 메시지
-            SendPacket(new SystemMessagePacket 
-            { 
+            SendPacket(new SystemMessagePacket
+            {
                 Message = "Welcome! Please login with: /login <name>",
                 Level = "info"
             });
-            
+
             // TCP 메시지 수신
             Receive<Tcp.Received>(data =>
             {
                 var message = Encoding.UTF8.GetString(data.Data.ToArray());
                 Console.WriteLine($"[Client] Raw received: {message}");
-                
+
                 ProcessJsonPackets(message);
             });
-            
+
             // 연결 종료
             Receive<Tcp.ConnectionClosed>(closed =>
             {
                 Console.WriteLine($"[Client] Connection closed");
-                if (_context.PlayerName != null)
-                {
-                    _worldActor.Tell(new PlayerDisconnect(_context.PlayerName));
-                }
+                _worldActor.Tell(new PlayerDisconnect(_context.PlayerId));
                 Context.Stop(Self);
             });
-            
+
             // Actor 간 메시지 처리
             Receive<ChatToClient>(HandleChatToClient);
             Receive<LoginFailed>(HandleLoginFailed);
@@ -68,10 +65,10 @@ namespace ActorServer.Network
         {
             _receiveBuffer.Append(data);
             var fullData = _receiveBuffer.ToString();
-            
+
             // \n으로 구분된 각 JSON 패킷 처리
             var lines = fullData.Split('\n');
-            
+
             for (int i = 0; i < lines.Length - 1; i++)
             {
                 if (!string.IsNullOrWhiteSpace(lines[i]))
@@ -79,7 +76,7 @@ namespace ActorServer.Network
                     ProcessSingleJsonPacket(lines[i].Trim());
                 }
             }
-            
+
             // 마지막 부분이 완전한 패킷이 아니면 버퍼에 유지
             _receiveBuffer.Clear();
             if (!string.IsNullOrWhiteSpace(lines[^1]) && !lines[^1].Contains('}'))
@@ -96,29 +93,29 @@ namespace ActorServer.Network
             try
             {
                 Console.WriteLine($"[Client] Processing JSON packet: {json}");
-                
+
                 var packet = PacketSerializer.Deserialize(json);
                 if (packet == null)
                 {
-                    SendPacket(new ErrorMessagePacket 
-                    { 
+                    SendPacket(new ErrorMessagePacket
+                    {
                         Error = "Invalid packet format",
                         Details = "Failed to deserialize JSON"
                     });
                     return;
                 }
-                
+
                 // 변경: 핸들러 매니저에 위임
                 await _handlerManager.HandlePacket(packet);
-                
+
                 // 컨텍스트 동기화
-                _playerName = _context.PlayerName;
+                _playerId = _context.PlayerId;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[Client] Error processing packet: {ex.Message}");
-                SendPacket(new ErrorMessagePacket 
-                { 
+                SendPacket(new ErrorMessagePacket
+                {
                     Error = "Error processing packet",
                     Details = ex.Message
                 });
@@ -126,18 +123,12 @@ namespace ActorServer.Network
         }
 
         // === Actor 메시지 핸들러 ===
-        
+
         private void HandleChatToClient(ChatToClient msg)
         {
-            var packet = new ChatMessagePacket
-            {
-                PlayerName = msg.From,
-                Message = msg.Message,
-                IsSelf = (msg.From == _playerName)
-            };
-            SendPacket(packet);
+            // TODO
         }
-        
+
         private void HandleLoginFailed(LoginFailed msg)
         {
             var packet = new LoginResponsePacket
@@ -147,14 +138,14 @@ namespace ActorServer.Network
             };
             SendPacket(packet);
         }
-        
+
         private void HandleChangeZoneResponse(ChangeZoneResponse msg)
         {
             var packet = new ZoneChangeResponsePacket
             {
                 Success = msg.Success,
                 ZoneName = msg.Success ? msg.Message : "",
-                Message = msg.Success 
+                Message = msg.Success
                     ? $"Successfully moved to zone: {msg.Message}"
                     : $"Failed to change zone: {msg.Message}"
             };
@@ -162,15 +153,15 @@ namespace ActorServer.Network
         }
 
         // === 헬퍼 메서드 ===
-        
+
         private void SendPacket<T>(T packet) where T : Packet
         {
             var bytes = PacketSerializer.SerializeToBytes(packet);
             _connection.Tell(Tcp.Write.Create(bytes));
         }
-        
+
         // === Actor 라이프사이클 ===
-        
+
         protected override void PreStart()
         {
             Console.WriteLine("[ClientConnection] New client connection established");
@@ -179,7 +170,11 @@ namespace ActorServer.Network
 
         protected override void PostStop()
         {
-            Console.WriteLine($"[ClientConnection] Client {_playerName ?? "unknown"} disconnected");
+            if (_playerId > 0)
+            {
+                _worldActor.Tell(new PlayerDisconnect(_playerId));
+            }
+            Console.WriteLine($"[ClientConnection] Player ID:{_playerId} disconnected");
             base.PostStop();
         }
     }

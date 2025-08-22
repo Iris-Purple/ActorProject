@@ -21,7 +21,6 @@ public class ClientConnectionContext
     public IActorRef WorldActor { get; }
     public IActorRef Self { get; }
     public long PlayerId { get; set;}
-    public string? PlayerName { get; set; }
 
     public ClientConnectionContext(IActorRef connection, IActorRef worldActor, IActorRef self)
     {

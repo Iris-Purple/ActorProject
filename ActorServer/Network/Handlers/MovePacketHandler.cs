@@ -14,26 +14,25 @@ public class MovePacketHandler : IPacketHandler
         if (packet is not MovePacket movePacket)
             return Task.CompletedTask;
 
-        if (context.PlayerName == null)
+        if (context.PlayerId == 0)
         {
             context.SendPacket(new ErrorMessagePacket { Error = "Not logged in" });
             return Task.CompletedTask;
         }
-
         // WorldActor에 이동 명령 전달
-        context.TellWorldActor(new PlayerCommand(context.PlayerName,
+        context.TellWorldActor(new PlayerCommand(context.PlayerId,
             new MoveCommand(new Position(movePacket.X, movePacket.Y))));
 
         // 이동 확인 응답
         context.SendPacket(new MoveNotificationPacket
         {
-            PlayerName = context.PlayerName,
+            PlayerId = context.PlayerId,
             X = movePacket.X,
             Y = movePacket.Y,
             IsSelf = true
         });
 
-        Console.WriteLine($"[MoveHandler] {context.PlayerName} moving to ({movePacket.X}, {movePacket.Y})");
+        Console.WriteLine($"[MoveHandler] {context.PlayerId} moving to ({movePacket.X}, {movePacket.Y})");
 
         return Task.CompletedTask;
     }

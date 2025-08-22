@@ -54,9 +54,6 @@ public static class PacketSerializer
                 PacketType.Move => JsonSerializer.Deserialize<MovePacket>(json, _options),
                 PacketType.Say => JsonSerializer.Deserialize<SayPacket>(json, _options),
                 PacketType.Zone => JsonSerializer.Deserialize<ZonePacket>(json, _options),
-                PacketType.Status => JsonSerializer.Deserialize<StatusPacket>(json, _options),
-                PacketType.Help => JsonSerializer.Deserialize<HelpPacket>(json, _options),
-                PacketType.Quit => JsonSerializer.Deserialize<QuitPacket>(json, _options),
                 _ => basePacket
             };
         }

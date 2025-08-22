@@ -15,15 +15,15 @@ public record Position(float X, float Y)
     }
 }
 
-public record PlayerInfo(IActorRef Actor, string Name, Position Position);
+public record PlayerInfo(IActorRef Actor, long PlayerId, Position Position);
 
 // ============================================
 // 로그인/연결 관련
 // ============================================
 
-public record PlayerLoginRequest(long PlayerId, string PlayerName);
-public record PlayerDisconnect(string PlayerName);
-public record RegisterClientConnection(string PlayerName, IActorRef ClientActor);
+public record PlayerLoginRequest(long PlayerId);
+public record PlayerDisconnect(long PlayerId);
+public record RegisterClientConnection(long PlayerId, IActorRef ClientActor);
 public record SetClientConnection(IActorRef ClientActor);
 
 // ============================================
@@ -38,18 +38,18 @@ public record PlayerMovement(IActorRef PlayerActor, Position NewPosition);  // Z
 // 플레이어 명령 라우팅
 // ============================================
 
-public record PlayerCommand(string PlayerName, object? Command);
+public record PlayerCommand(long PlayerId, object? Command);
 
 // ============================================
 // Zone 이동 요청 (WorldActor → ZoneManager)
 // ============================================
 
-public record RequestZoneChange(string PlayerName, string TargetZoneId);
+public record RequestZoneChange(long PlayerId, string TargetZoneId);
 
 // ============================================
 // 클라이언트 통신
 // ============================================
 
 public record ChatToClient(string From, string Message);
-public record LoginFailed(string PlayerName, string Reason);
-public record CommandFailed(string PlayerName, string Command, string Reason);
+public record LoginFailed(long PlayerId, string Reason);
+public record CommandFailed(long PlayerId, string Command, string Reason);

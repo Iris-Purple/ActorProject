@@ -13,23 +13,15 @@ public class ChatPacketHandler : IPacketHandler
         if (packet is not SayPacket sayPacket)
             return Task.CompletedTask;
 
-        if (context.PlayerName == null)
+        if (context.PlayerId == 0)
         {
             context.SendPacket(new ErrorMessagePacket { Error = "Not logged in" });
             return Task.CompletedTask;
         }
+        context.TellWorldActor(new PlayerCommand(context.PlayerId,
+            new ChatMessage(context.PlayerId, sayPacket.Message)));
 
-        if (string.IsNullOrWhiteSpace(sayPacket.Message))
-        {
-            context.SendPacket(new ErrorMessagePacket { Error = "Usage: /say <message>" });
-            return Task.CompletedTask;
-        }
-
-        // WorldActor에 채팅 메시지 전달
-        context.TellWorldActor(new PlayerCommand(context.PlayerName,
-            new ChatMessage(context.PlayerName, sayPacket.Message)));
-
-        Console.WriteLine($"[ChatHandler] {context.PlayerName}: {sayPacket.Message}");
+        Console.WriteLine($"[ChatHandler] {sayPacket.Message}");
 
         return Task.CompletedTask;
     }

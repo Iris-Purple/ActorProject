@@ -1,8 +1,6 @@
 using ActorServer.Messages;
 using ActorServer.Network.Protocol;
 using Common.Database;
-using Akka.Actor;
-using System.Threading.Tasks;
 
 namespace ActorServer.Network.Handlers;
 
@@ -18,16 +16,6 @@ public class LoginPacketHandler : IPacketHandler
         if (packet is not LoginPacket loginPacket)
             return;
 
-        if (string.IsNullOrWhiteSpace(loginPacket.PlayerName))
-        {
-            context.SendPacket(new LoginResponsePacket
-            {
-                Success = false,
-                Message = "Usage: /login <name>"
-            });
-            return;
-        }
-
         var isValid = await _accountDb.ValidateTokenAsync(loginPacket.PlayerId, loginPacket.Token);
         if (!isValid)
         {
@@ -37,24 +25,32 @@ public class LoginPacketHandler : IPacketHandler
                 Message = "Invalid or expired token. Please login through AuthServer first."
             });
 
-            Console.WriteLine($"[LoginHandler] Token validation failed for {loginPacket.PlayerName}");
+            Console.WriteLine($"[LoginHandler] Token validation failed for {loginPacket.PlayerId}");
             return;
         }
 
-        var playerName = loginPacket.PlayerName.Trim();
-        context.PlayerName = playerName;
-        context.PlayerId = loginPacket.PlayerId;
+        var accountInfo = await _accountDb.GetAccountByPlayerIdAsync(loginPacket.PlayerId);
+        if (accountInfo == null)
+        {
+            context.SendPacket(new LoginResponsePacket
+            {
+                Success = false,
+                Message = "Account not found"
+            });
+            return;
+        }
 
+        context.PlayerId = loginPacket.PlayerId;
         // WorldActor에 로그인 요청
-        context.TellWorldActor(new PlayerLoginRequest(loginPacket.PlayerId, playerName));
-        context.TellWorldActor(new RegisterClientConnection(playerName, context.Self));
+        context.TellWorldActor(new PlayerLoginRequest(loginPacket.PlayerId));
+        context.TellWorldActor(new RegisterClientConnection(context.PlayerId, context.Self));
 
         // 로그인 성공 응답
         context.SendPacket(new LoginResponsePacket
         {
             Success = true,
-            Message = $"Logged in as {playerName}",
-            PlayerName = playerName
+            Message = $"Logged in as {loginPacket.PlayerId}",
+            PlayerId = context.PlayerId
         });
 
         // 추가 안내 메시지
@@ -64,6 +60,6 @@ public class LoginPacketHandler : IPacketHandler
             Level = "info"
         });
 
-        Console.WriteLine($"[LoginHandler] Player {playerName} logged in");
+        Console.WriteLine($"[LoginHandler] PlayerId: {loginPacket.PlayerId} logged in successfully");
     }
 }

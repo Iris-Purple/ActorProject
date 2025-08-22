@@ -3,6 +3,6 @@ using Akka.Actor;
 namespace ActorServer.Messages;
 
 // === Actor 복구 관련 ===
-public record PlayerReconnecting(string PlayerName);
-public record PlayerReconnected(string PlayerName, Position Position);
-public record PlayerRecovered(string PlayerName, string ZoneId, Position Position);
+public record PlayerReconnecting(long PlayerId);
+public record PlayerReconnected(long PlayerId, Position Position);
+public record PlayerRecovered(long PlayerId, string ZoneId, Position Position);

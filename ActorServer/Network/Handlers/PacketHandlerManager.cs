@@ -20,10 +20,7 @@ public class PacketHandlerManager
             { PacketType.Login, new LoginPacketHandler() },
             { PacketType.Move, new MovePacketHandler() },
             { PacketType.Say, new ChatPacketHandler() },
-            { PacketType.Zone, new ZonePacketHandler() },
-            { PacketType.Status, new SystemPacketHandler() },
-            { PacketType.Help, new SystemPacketHandler() },
-            { PacketType.Quit, new SystemPacketHandler() }
+            { PacketType.Zone, new ZonePacketHandler() }
         };
     }
     

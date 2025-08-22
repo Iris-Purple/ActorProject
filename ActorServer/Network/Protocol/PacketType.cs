@@ -11,9 +11,6 @@ public enum PacketType
     Move = 200,         // /move <x> <y>
     Say = 300,          // /say <message>
     Zone = 400,         // /zone <name>
-    Status = 500,       // /status
-    Help = 600,         // /help
-    Quit = 700,         // /quit
     
     // === Server -> Client (응답/알림) ===
     LoginResponse = 101,

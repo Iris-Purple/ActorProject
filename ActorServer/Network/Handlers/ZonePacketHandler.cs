@@ -13,12 +13,6 @@ public class ZonePacketHandler : IPacketHandler
         if (packet is not ZonePacket zonePacket)
             return Task.CompletedTask;
             
-        if (context.PlayerName == null)
-        {
-            context.SendPacket(new ErrorMessagePacket { Error = "Not logged in" });
-            return Task.CompletedTask;
-        }
-        
         if (string.IsNullOrWhiteSpace(zonePacket.ZoneName))
         {
             context.SendPacket(new ErrorMessagePacket 
@@ -32,7 +26,7 @@ public class ZonePacketHandler : IPacketHandler
         var targetZone = zonePacket.ZoneName.Trim();
         
         // WorldActor에 Zone 변경 요청
-        context.TellWorldActor(new RequestZoneChange(context.PlayerName, targetZone));
+        context.TellWorldActor(new RequestZoneChange(context.PlayerId, targetZone));
         
         // 요청 확인 메시지
         context.SendPacket(new SystemMessagePacket
@@ -41,7 +35,7 @@ public class ZonePacketHandler : IPacketHandler
             Level = "info"
         });
         
-        Console.WriteLine($"[ZoneHandler] {context.PlayerName} requesting zone change to {targetZone}");
+        Console.WriteLine($"[ZoneHandler] requesting zone change to {targetZone}");
         return Task.CompletedTask;
     }
 }
