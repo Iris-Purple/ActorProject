@@ -17,6 +17,10 @@ AuthServer/.vscode/
 AuthServer/bin/
 AuthServer/obj/
 
+Common/.vscode/
+Common/bin/
+Common/obj/
+
 # 테스트 프로젝트 빌드 출력
 Test/**/bin/
 Test/**/obj/
