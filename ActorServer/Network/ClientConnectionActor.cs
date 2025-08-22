@@ -91,7 +91,7 @@ namespace ActorServer.Network
         /// <summary>
         /// 단일 JSON 패킷 처리
         /// </summary>
-        private void ProcessSingleJsonPacket(string json)
+        private async void ProcessSingleJsonPacket(string json)
         {
             try
             {
@@ -109,7 +109,7 @@ namespace ActorServer.Network
                 }
                 
                 // 변경: 핸들러 매니저에 위임
-                _handlerManager.HandlePacket(packet);
+                await _handlerManager.HandlePacket(packet);
                 
                 // 컨텍스트 동기화
                 _playerName = _context.PlayerName;

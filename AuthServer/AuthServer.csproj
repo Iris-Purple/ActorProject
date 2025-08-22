@@ -11,7 +11,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\Common\Database\DatabaseConfig.cs" Link="Common\DatabaseConfig.cs" />
+    <ProjectReference Include="..\Common\Common.csproj" />
   </ItemGroup>
-
 </Project>

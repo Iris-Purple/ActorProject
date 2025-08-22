@@ -22,7 +22,9 @@ public record Packet
 public record LoginPacket : Packet
 {
     [JsonPropertyName("playerName")]
-    public string PlayerName { get; init; } = "";
+    public long PlayerId { get; init; }
+    public string PlayerName { get; init; } = string.Empty;
+    public string Token { get; init; } = string.Empty;
     
     public LoginPacket() 
     { 

@@ -1,0 +1,13 @@
+/Users/goormbee/study/ActorProject/Common/bin/Debug/net9.0/Common.deps.json
+/Users/goormbee/study/ActorProject/Common/bin/Debug/net9.0/Common.dll
+/Users/goormbee/study/ActorProject/Common/bin/Debug/net9.0/Common.pdb
+/Users/goormbee/study/ActorProject/Common/obj/Debug/net9.0/Common.csproj.AssemblyReference.cache
+/Users/goormbee/study/ActorProject/Common/obj/Debug/net9.0/Common.GeneratedMSBuildEditorConfig.editorconfig
+/Users/goormbee/study/ActorProject/Common/obj/Debug/net9.0/Common.AssemblyInfoInputs.cache
+/Users/goormbee/study/ActorProject/Common/obj/Debug/net9.0/Common.AssemblyInfo.cs
+/Users/goormbee/study/ActorProject/Common/obj/Debug/net9.0/Common.csproj.CoreCompileInputs.cache
+/Users/goormbee/study/ActorProject/Common/obj/Debug/net9.0/Common.sourcelink.json
+/Users/goormbee/study/ActorProject/Common/obj/Debug/net9.0/Common.dll
+/Users/goormbee/study/ActorProject/Common/obj/Debug/net9.0/refint/Common.dll
+/Users/goormbee/study/ActorProject/Common/obj/Debug/net9.0/Common.pdb
+/Users/goormbee/study/ActorProject/Common/obj/Debug/net9.0/ref/Common.dll

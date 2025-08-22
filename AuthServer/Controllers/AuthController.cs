@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using AuthServer.Models;
-using AuthServer.Services;
+using Common.Database;  // 변경: Common의 AccountDatabase 사용
 
 namespace AuthServer.Controllers;
 
@@ -11,20 +11,17 @@ namespace AuthServer.Controllers;
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
-    private readonly AccountDatabase _accountDb;
+    private readonly AccountDatabase _accountDb = AccountDatabase.Instance;  // 변경: 싱글톤 직접 사용
     private readonly ILogger<AuthController> _logger;
     
-    public AuthController(AccountDatabase accountDb, ILogger<AuthController> logger)
+    public AuthController(ILogger<AuthController> logger)
     {
-        _accountDb = accountDb;
         _logger = logger;
     }
     
     /// <summary>
     /// 로그인 엔드포인트
     /// </summary>
-    /// <param name="request">로그인 요청 정보</param>
-    /// <returns>로그인 결과</returns>
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request)
     {
@@ -39,7 +36,7 @@ public class AuthController : ControllerBase
             });
         }
         
-        // 2. AccountId 형식 검증 (영문, 숫자, 언더스코어만 허용)
+        // 2. AccountId 형식 검증
         if (!System.Text.RegularExpressions.Regex.IsMatch(request.AccountId, @"^[a-zA-Z0-9_]+$"))
         {
             _logger.LogWarning("Invalid AccountId format: {AccountId}", request.AccountId);
@@ -52,17 +49,40 @@ public class AuthController : ControllerBase
         
         _logger.LogInformation("Login attempt for account {AccountId}", request.AccountId);
         
-        // 3. 로그인 처리 (변경: clientIp 파라미터 제거)
+        // 3. 로그인 처리 (Common AccountDatabase 사용)
         var result = await _accountDb.ProcessLoginAsync(request.AccountId);
         
-        // 4. 응답 반환
+        // 4. 응답 변환
+        var response = new LoginResponse
+        {
+            Success = result.Success,
+            Message = result.Success 
+                ? (result.IsNewAccount ? "New account created successfully" : "Login successful")
+                : result.ErrorMessage ?? "Login failed",
+            PlayerId = result.PlayerId,
+            Token = result.Token,
+            IsNewAccount = result.IsNewAccount,
+            LastLoginAt = result.LastLoginAt
+        };
+        
         if (result.Success)
         {
-            return Ok(result);
+            _logger.LogInformation("Login successful - AccountId: {AccountId}, PlayerId: {PlayerId}", 
+                request.AccountId, result.PlayerId);
+            return Ok(response);
         }
         else
         {
-            return StatusCode(500, result);
+            return StatusCode(500, response);
         }
+    }
+    
+    /// <summary>
+    /// 헬스 체크 엔드포인트
+    /// </summary>
+    [HttpGet("health")]
+    public IActionResult Health()
+    {
+        return Ok(new { status = "healthy", timestamp = DateTime.UtcNow });
     }
 }

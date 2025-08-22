@@ -27,11 +27,11 @@ public class ChatTests : TestKit
         var bobProbe = CreateTestProbe("bob");
 
         // Alice 로그인
-        worldActor.Tell(new PlayerLoginRequest("Alice"));
+        worldActor.Tell(new PlayerLoginRequest(1001, "Alice"));
         worldActor.Tell(new RegisterClientConnection("Alice", aliceProbe));
 
         // Bob 로그인
-        worldActor.Tell(new PlayerLoginRequest("Bob"));
+        worldActor.Tell(new PlayerLoginRequest(1002, "Bob"));
         worldActor.Tell(new RegisterClientConnection("Bob", bobProbe));
 
         // 초기 메시지 처리 (간단히)

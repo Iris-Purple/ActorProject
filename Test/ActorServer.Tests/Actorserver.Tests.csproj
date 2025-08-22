@@ -21,11 +21,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\ActorServer\ActorServer.csproj" />
+    <ProjectReference Include="..\..\Common\Common.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Compile Include="..\..\Common\Database\DatabaseConfig.cs" Link="Common\DatabaseConfig.cs" />
-  </ItemGroup>
-
-
 </Project>

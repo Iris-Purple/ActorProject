@@ -8,7 +8,7 @@ namespace ActorServer.Network.Handlers;
 /// </summary>
 public class SystemPacketHandler : IPacketHandler
 {
-    public void HandlePacket(Packet packet, ClientConnectionContext context)
+    public Task HandlePacket(Packet packet, ClientConnectionContext context)
     {
         switch (packet)
         {
@@ -24,6 +24,7 @@ public class SystemPacketHandler : IPacketHandler
                 HandleQuit(context);
                 break;
         }
+        return Task.CompletedTask;
     }
     
     private void HandleStatus(ClientConnectionContext context)

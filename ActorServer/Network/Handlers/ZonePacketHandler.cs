@@ -8,15 +8,15 @@ namespace ActorServer.Network.Handlers;
 /// </summary>
 public class ZonePacketHandler : IPacketHandler
 {
-    public void HandlePacket(Packet packet, ClientConnectionContext context)
+    public Task HandlePacket(Packet packet, ClientConnectionContext context)
     {
         if (packet is not ZonePacket zonePacket)
-            return;
+            return Task.CompletedTask;
             
         if (context.PlayerName == null)
         {
             context.SendPacket(new ErrorMessagePacket { Error = "Not logged in" });
-            return;
+            return Task.CompletedTask;
         }
         
         if (string.IsNullOrWhiteSpace(zonePacket.ZoneName))
@@ -26,7 +26,7 @@ public class ZonePacketHandler : IPacketHandler
                 Error = "Usage: /zone <zone_name>",
                 Details = "Available zones: town, forest, dungeon-1"
             });
-            return;
+            return Task.CompletedTask;
         }
         
         var targetZone = zonePacket.ZoneName.Trim();
@@ -42,5 +42,6 @@ public class ZonePacketHandler : IPacketHandler
         });
         
         Console.WriteLine($"[ZoneHandler] {context.PlayerName} requesting zone change to {targetZone}");
+        return Task.CompletedTask;
     }
 }

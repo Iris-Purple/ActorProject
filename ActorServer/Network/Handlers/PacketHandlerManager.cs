@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using ActorServer.Network.Protocol;
 
 namespace ActorServer.Network.Handlers;
@@ -29,11 +30,11 @@ public class PacketHandlerManager
     /// <summary>
     /// 패킷 처리
     /// </summary>
-    public void HandlePacket(Packet packet)
+    public async Task HandlePacket(Packet packet)
     {
         if (_handlers.TryGetValue(packet.Type, out var handler))
         {
-            handler.HandlePacket(packet, _context);
+            await handler.HandlePacket(packet, _context);
         }
         else
         {

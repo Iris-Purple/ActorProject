@@ -143,7 +143,7 @@ public class WorldActor : ReceiveActor
         if (ShouldRecreatePlayer(playerId))
         {
             Console.WriteLine($"[World] Attempting to recreate player {playerName} (ID:{playerId})...");
-            HandlePlayerLogin(new PlayerLoginRequest(playerName));
+            HandlePlayerLogin(new PlayerLoginRequest(playerId, playerName));
         }
         else
         {

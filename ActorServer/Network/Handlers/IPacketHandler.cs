@@ -9,7 +9,7 @@ namespace ActorServer.Network.Handlers;
 /// </summary>
 public interface IPacketHandler
 {
-    void HandlePacket(Packet packet, ClientConnectionContext context);
+    Task HandlePacket(Packet packet, ClientConnectionContext context);
 }
 
 /// <summary>
@@ -20,6 +20,7 @@ public class ClientConnectionContext
     public IActorRef Connection { get; }
     public IActorRef WorldActor { get; }
     public IActorRef Self { get; }
+    public long PlayerId { get; set;}
     public string? PlayerName { get; set; }
 
     public ClientConnectionContext(IActorRef connection, IActorRef worldActor, IActorRef self)
