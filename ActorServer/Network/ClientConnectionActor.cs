@@ -126,7 +126,15 @@ namespace ActorServer.Network
 
         private void HandleChatToClient(ChatToClient msg)
         {
-            // TODO
+            // 채팅 메시지를 패킷으로 변환하여 클라이언트에 전송
+            var chatPacket = new ChatMessagePacket
+            {
+                PlayerName = msg.From,  // "System" 또는 플레이어 ID
+                Message = msg.Message,
+                IsSelf = msg.From == _playerId.ToString()  // 자신의 메시지인지 확인
+            };
+
+            SendPacket(chatPacket);
         }
 
         private void HandleLoginFailed(LoginFailed msg)

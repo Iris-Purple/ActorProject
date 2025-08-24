@@ -16,50 +16,33 @@ public class LoginPacketHandler : IPacketHandler
         if (packet is not LoginPacket loginPacket)
             return;
 
+        // 1. 토큰 검증 (여기서만!)
         var isValid = await _accountDb.ValidateTokenAsync(loginPacket.PlayerId, loginPacket.Token);
         if (!isValid)
         {
             context.SendPacket(new LoginResponsePacket
             {
                 Success = false,
-                Message = "Invalid or expired token. Please login through AuthServer first."
-            });
-
-            Console.WriteLine($"[LoginHandler] Token validation failed for {loginPacket.PlayerId}");
-            return;
-        }
-
-        var accountInfo = await _accountDb.GetAccountByPlayerIdAsync(loginPacket.PlayerId);
-        if (accountInfo == null)
-        {
-            context.SendPacket(new LoginResponsePacket
-            {
-                Success = false,
-                Message = "Account not found"
+                Message = "Invalid or expired token"
             });
             return;
         }
 
+        // 2. PlayerDatabase에 상태 초기화
+        var playerDb = PlayerDatabase.Instance;
+        playerDb.GetOrCreatePlayerId(loginPacket.PlayerId);  // player_states 테이블 insert
+
+        // 3. 검증 완료 후 WorldActor에는 PlayerId만 전달 (토큰 불필요)
         context.PlayerId = loginPacket.PlayerId;
-        // WorldActor에 로그인 요청
-        context.TellWorldActor(new PlayerLoginRequest(loginPacket.PlayerId));
+        context.TellWorldActor(new PlayerEnterWorld(loginPacket.PlayerId));  // 토큰 제거
         context.TellWorldActor(new RegisterClientConnection(context.PlayerId, context.Self));
 
-        // 로그인 성공 응답
+        // 4. 성공 응답
         context.SendPacket(new LoginResponsePacket
         {
             Success = true,
-            Message = $"Logged in as {loginPacket.PlayerId}",
+            Message = $"Logged in as PlayerId: {loginPacket.PlayerId}",
             PlayerId = context.PlayerId
         });
-
-        // 추가 안내 메시지
-        context.SendPacket(new SystemMessagePacket
-        {
-            Message = "Type /help for available commands",
-            Level = "info"
-        });
-
-        Console.WriteLine($"[LoginHandler] PlayerId: {loginPacket.PlayerId} logged in successfully");
     }
 }

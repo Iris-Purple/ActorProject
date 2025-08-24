@@ -17,7 +17,7 @@ public class WorldActor : ReceiveActor
     {
         zoneManager = Context.ActorOf(Props.Create<ZoneManager>(), "zone-manager");
 
-        Receive<PlayerLoginRequest>(HandlePlayerLogin);
+        Receive<PlayerEnterWorld>(HandlePlayerEnterWorld);
         Receive<PlayerCommand>(HandlePlayerCommand);
         Receive<PlayerDisconnect>(HandlePlayerDisconnect);
         Receive<RequestZoneChange>(HandleZoneChangeRequest);
@@ -25,7 +25,7 @@ public class WorldActor : ReceiveActor
         Receive<Terminated>(HandleTerminated);
         Receive<TestSupervision>(HandleTestSupervision);
     }
-    private void HandlePlayerLogin(PlayerLoginRequest msg)
+    private void HandlePlayerEnterWorld(PlayerEnterWorld msg)
     {
         try
         {
@@ -128,6 +128,19 @@ public class WorldActor : ReceiveActor
     }
     private void HandleZoneChangeRequest(RequestZoneChange msg)
     {
-        // TODO...
+        if (players.TryGetValue(msg.PlayerId, out var playerActor))
+        {
+            zoneManager.Tell(new ChangeZoneRequest(playerActor, msg.PlayerId, msg.TargetZoneId));
+            Console.WriteLine($"[World] Zone change requested - Player:{msg.PlayerId} -> Zone:{msg.TargetZoneId}");
+        }
+        else
+        {
+            Console.WriteLine($"[World] Zone change failed - Player {msg.PlayerId} not found");
+            
+            if (clientConnections.TryGetValue(msg.PlayerId, out var client))
+            {
+                client.Tell(new CommandFailed(msg.PlayerId, "zone", "Player not found. Please login first."));
+            }
+        }
     }
 }

@@ -1,3 +1,4 @@
+using Common.Database;
 using Xunit;
 
 namespace ActorServer.Tests.Fixtures;
@@ -5,51 +6,66 @@ namespace ActorServer.Tests.Fixtures;
 public class DatabaseFixture : IDisposable
 {
     public string TestDbPath { get; }
-    
+    private static readonly object _lock = new object();
+
     public DatabaseFixture()
     {
-        // 테스트 환경 설정
-        Environment.SetEnvironmentVariable("TEST_ENVIRONMENT", "true");
-
-        TestDbPath = "test_collection.db";
-        Console.WriteLine($"[FIXTURE] Initializing test database: {TestDbPath}");
-        
-        // 기존 파일 있으면 삭제
-        if (File.Exists(TestDbPath))
+        lock (_lock)
         {
-            try
+            Environment.SetEnvironmentVariable("TEST_ENVIRONMENT", "true");
+
+            // 고정된 테스트 DB 경로 사용
+            TestDbPath = "test_collection.db";
+            Environment.SetEnvironmentVariable("TEST_DB_PATH", TestDbPath);
+
+            Console.WriteLine($"[FIXTURE] Initializing test database: {TestDbPath}");
+
+            // 기존 DB 파일들 정리
+            CleanupDatabaseFiles();
+
+            // PlayerDatabase 싱글톤 리셋하여 새 DB 생성
+            PlayerDatabase.ResetInstance();
+
+            // DB 초기화 확인
+            var db = PlayerDatabase.Instance;
+            Console.WriteLine($"[FIXTURE] Database initialized at: {db.GetDbPath()}");
+        }
+    }
+
+    private void CleanupDatabaseFiles()
+    {
+        var files = new[] { TestDbPath, $"{TestDbPath}-shm", $"{TestDbPath}-wal" };
+        foreach (var file in files)
+        {
+            if (File.Exists(file))
             {
-                File.Delete(TestDbPath);
-                Console.WriteLine($"[FIXTURE] Deleted existing test DB");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[FIXTURE] Could not delete existing DB: {ex.Message}");
+                try
+                {
+                    // 파일 속성 변경 (읽기 전용 해제)
+                    File.SetAttributes(file, FileAttributes.Normal);
+                    File.Delete(file);
+                    Console.WriteLine($"[FIXTURE] Deleted: {file}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[FIXTURE] Could not delete {file}: {ex.Message}");
+                }
             }
         }
     }
-    
     public void Dispose()
     {
-        Console.WriteLine($"[FIXTURE] Cleaning up database: {TestDbPath}");
-        
-        Environment.SetEnvironmentVariable("TEST_ENVIRONMENT", null);
-        
-        if (File.Exists(TestDbPath))
+        lock (_lock)
         {
-            try
-            {
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-                GC.Collect();
-                
-                File.Delete(TestDbPath);
-                Console.WriteLine($"[FIXTURE] Deleted test DB: {TestDbPath}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[FIXTURE] Failed to delete: {ex.Message}");
-            }
+            Console.WriteLine($"[FIXTURE] Cleaning up database: {TestDbPath}");
+
+            // 정리
+            CleanupDatabaseFiles();
+
+            Environment.SetEnvironmentVariable("TEST_DB_PATH", null);
+            Environment.SetEnvironmentVariable("TEST_ENVIRONMENT", null);
+
+            PlayerDatabase.ResetInstance();
         }
     }
 }

@@ -4,7 +4,26 @@ namespace Common.Database;
 
 public class PlayerDatabase
 {
-    public static readonly PlayerDatabase Instance = new PlayerDatabase(GetDatabasePath());
+    private static PlayerDatabase? _instance;
+    public static PlayerDatabase Instance
+    {
+        get
+        {
+            // 테스트 환경에서는 DB 파일이 없으면 재생성
+            if (_instance != null)
+            {
+                var testEnv = Environment.GetEnvironmentVariable("TEST_ENVIRONMENT");
+                if (testEnv == "true" && !File.Exists(_instance._dbPath))
+                {
+                    Console.WriteLine("[DB] Test DB file deleted, recreating...");
+                    _instance = null;
+                }
+            }
+
+            return _instance ??= new PlayerDatabase(GetDatabasePath());
+        }
+    }
+
     private readonly string _dbPath;
     // 환경 감지 - xUnit 실행 여부 확인
     private static string GetDatabasePath()
@@ -48,8 +67,8 @@ public class PlayerDatabase
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
             conn.Open();
-            var cmd = conn.CreateCommand();
 
+            var cmd = conn.CreateCommand();
             // 테이블 생성
             cmd.CommandText = @"
                 CREATE TABLE IF NOT EXISTS player_states (
@@ -193,6 +212,13 @@ public class PlayerDatabase
     }
 
     public string GetDbPath() => _dbPath;
+
+    // 테스트용 메서드 추가
+    public static void ResetInstance()
+    {
+        _instance = null;
+        Console.WriteLine("[DB] Instance reset for testing");
+    }
 }
 
 public class PlayerData

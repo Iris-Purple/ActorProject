@@ -21,7 +21,7 @@ public record PlayerInfo(IActorRef Actor, long PlayerId, Position Position);
 // 로그인/연결 관련
 // ============================================
 
-public record PlayerLoginRequest(long PlayerId);
+public record PlayerEnterWorld(long PlayerId);
 public record PlayerDisconnect(long PlayerId);
 public record RegisterClientConnection(long PlayerId, IActorRef ClientActor);
 public record SetClientConnection(IActorRef ClientActor);

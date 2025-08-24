@@ -256,10 +256,12 @@ public class PlayerActor : ReceiveActor
         if (msg.PlayerId == playerId)
         {
             Console.WriteLine($"[Player-{playerId}] You said: {msg.Message}");
+            clientConnection?.Tell(new ChatToClient("You", msg.Message));
         }
         else
         {
             Console.WriteLine($"[Player-{playerId}] {msg.PlayerId} says: {msg.Message}");
+            clientConnection?.Tell(new ChatToClient(msg.PlayerId.ToString(), msg.Message));
         }
     }
 

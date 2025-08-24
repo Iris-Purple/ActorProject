@@ -124,19 +124,6 @@ public class ZoneActor : ReceiveActor
         }
     }
 
-    // ID 기반 브로드캐스트 (ID를 알고 있을 때)
-    private void BroadcastToOthersWithId(long senderId, object message)
-    {
-        // senderId에 해당하는 Actor 찾기
-        var senderActor = _actorToPlayerId
-            .FirstOrDefault(kvp => kvp.Value == senderId).Key;
-        
-        if (senderActor != null)
-        {
-            BroadcastToOthers(senderActor, message);
-        }
-    }
-
     private bool IsWithinZoneBoundary(Position pos)
     {
         // 간단한 경계 체크 (Zone 중심에서 ±500 범위)
