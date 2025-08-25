@@ -42,6 +42,27 @@ public abstract class AkkaTestKitBase : TestKit
         base.AfterAll();
     }
 
+    /// <summary>
+    /// 지정 시간 동안 모든 메시지 받고 원하는 타입만 반환
+    /// </summary>
+    protected T? CollectAndFilter<T>(dynamic probe, int ms = 500) where T : class
+    {
+        var msgs = new List<object>();
+        var end = DateTime.Now.AddMilliseconds(ms);
+
+        while (DateTime.Now < end)
+        {
+            try
+            {
+                var msg = probe.ReceiveOne(TimeSpan.FromMilliseconds(10));
+                if (msg != null) msgs.Add(msg);
+            }
+            catch { }
+        }
+
+        return msgs.OfType<T>().FirstOrDefault();
+    }
+
     // ========================================
     // 자동 로깅을 위한 메서드들
     // ========================================
@@ -364,4 +385,6 @@ public abstract class AkkaTestKitBase : TestKit
         Console.WriteLine(logMessage);
         Console.ResetColor();
     }
+
+
 }

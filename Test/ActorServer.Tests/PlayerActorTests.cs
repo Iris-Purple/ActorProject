@@ -79,34 +79,4 @@ public class PlayerActorTests : AkkaTestKitBase
 
         test.LogSuccess("PlayerActor invalid Move Position");
     }
-    [Fact]
-    public void PlayerActor_Should_Remove_From_Zone_On_Stop()
-    {
-        using var test = Test();
-
-        // Arrange
-        var playerId = 1001L;
-        // Act
-        var playerActor = Sys.ActorOf(
-            Props.Create<PlayerActor>(playerId),
-            $"test-player-{playerId}"
-        );
-        var zoneProbe = CreateTestProbe("zone");
-
-        // Zone 설정
-        playerActor.Tell(new SetZone(zoneProbe), TestActor);
-        Thread.Sleep(100); // playerActor 먼저 종료되는거 방지
-
-        // Act - Actor 종료
-        test.LogInfo("Stopping PlayerActor");
-        Sys.Stop(playerActor);
-
-        // Assert - Zone에 RemovePlayerFromZone 메시지가 전송되어야 함
-        test.LogInfo("PlayerActor 종료시  RemovePlayerFromZone 메시지 전달");
-        var removeMsg = zoneProbe.ExpectMsg<RemovePlayerFromZone>(TimeSpan.FromSeconds(1));
-        removeMsg.Should().NotBeNull();
-        removeMsg.PlayerId.Should().Be(playerId);
-
-        test.LogSuccess("Player removed from zone on stop");
-    }
 }

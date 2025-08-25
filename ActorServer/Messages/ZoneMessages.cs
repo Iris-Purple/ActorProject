@@ -47,7 +47,6 @@ public record AllZonesResponse(IEnumerable<ZoneInfo> Zones);
 // ============================================
 
 
-public record SetZone(IActorRef ZoneActor);
 public record GetZoneStatus();
 
 public record ZoneStatus
@@ -104,3 +103,8 @@ public record ChangeZoneRequest(
     long PlayerId,
     string TargetZoneId
 );
+
+public record GetPlayersInZone(string ZoneId);
+public record PlayersInZoneResponse(string ZoneId, List<PlayerInfo> Players);
+public record BroadcastToZone(object Message);
+public record SystemMessage(string Message);

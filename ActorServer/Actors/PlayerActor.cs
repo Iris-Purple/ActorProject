@@ -12,8 +12,8 @@ public class PlayerActor : ReceiveActor
 
     // 플레이어 상태
     private Position currentPosition = new Position(0, 0);  // 기본값으로 초기화
-    private IActorRef? currentZone;
     private IActorRef? clientConnection;
+    private IActorRef? zoneManager;
     private string currentZoneId = "town";
 
     // 다른 플레이어들의 정보 저장 (ID 기반)
@@ -31,9 +31,11 @@ public class PlayerActor : ReceiveActor
         LoadFromDatabase();
         Console.WriteLine($"[PlayerActor] Creating actor for (ID:{playerId})");
 
+        Receive<SetZoneManager>(HandleSetZoneManager);
+        Receive<ZoneMessageResult>(HandleZoneMessageResult);
+
         // ===== 일반 게임 메시지 핸들러 =====
         Receive<MoveCommand>(HandleMove);
-        Receive<SetZone>(HandleSetZone);
         Receive<SetClientConnection>(HandleSetClientConnection);
 
         // ===== Zone 관련 메시지 =====
@@ -75,8 +77,23 @@ public class PlayerActor : ReceiveActor
         }
     }
 
-    #region 이동 관련 핸들러
+    private void HandleSetZoneManager(SetZoneManager msg)
+    {
+        zoneManager = msg.ZoneManager;
+        Console.WriteLine($"[Player-{playerId}] ZoneManager set");
 
+        clientConnection?.Tell(new ChatToClient("System", "Connected to Zone Manager"));
+    }
+    private void HandleZoneMessageResult(ZoneMessageResult msg)
+    {
+        if (!msg.Success)
+        {
+            Console.WriteLine($"[Player-{playerId}] Zone operation failed: {msg.ErrorMessage}");
+            clientConnection?.Tell(new ChatToClient("System", $"Error: {msg.ErrorMessage}"));
+        }
+    }
+
+    #region 이동 관련 핸들러
     private void HandleMove(MoveCommand cmd)
     {
         try
@@ -88,14 +105,24 @@ public class PlayerActor : ReceiveActor
             {
                 throw new GameLogicException($"Move distance too large: {distance:F2}");
             }
+            if (zoneManager == null)
+            {
+                Console.WriteLine($"[Player-{playerId}] ZoneManager not set, cannot move");
+                clientConnection?.Tell(new ChatToClient("System", "Not connected to zone"));
+                return;
+            }
 
             var oldPosition = currentPosition;
             currentPosition = cmd.NewPosition;
 
+            // 변경: ZoneManager를 통해 이동
+            var moveInZone = new PlayerMoveInZone(playerId, currentZoneId, currentPosition);
+            zoneManager.Tell(moveInZone, Self);  // Self로 응답 받기
+
             Console.WriteLine($"[Player-{playerId}] Moving from ({oldPosition.X:F1}, {oldPosition.Y:F1}) to ({currentPosition.X:F1}, {currentPosition.Y:F1})");
             SaveToDatabase();
 
-            currentZone?.Tell(new PlayerMovement(Self, currentPosition));
+            // 클라이언트에 알림
             clientConnection?.Tell(new ChatToClient("System",
                 $"Moved to ({currentPosition.X:F1}, {currentPosition.Y:F1})"));
         }
@@ -141,20 +168,6 @@ public class PlayerActor : ReceiveActor
 
     #region Zone 관련 핸들러
 
-    private void HandleSetZone(SetZone msg)
-    {
-        try
-        {
-            currentZone = msg.ZoneActor;
-            Console.WriteLine($"[Player-{playerId}] Zone actor set");
-        }
-        catch (Exception ex)
-        {
-            LogError("SetZone", ex);
-            throw new TemporaryGameException($"Failed to set zone: {ex.Message}", ex);
-        }
-    }
-
     private void HandleChangeZoneResponse(ChangeZoneResponse msg)
     {
         if (msg.Success)
@@ -177,14 +190,15 @@ public class PlayerActor : ReceiveActor
 
     private void HandleZoneEntered(ZoneEntered msg)
     {
-        // 새 Zone에 진입했을 때
         currentZoneId = msg.ZoneInfo.ZoneId;
         currentPosition = msg.ZoneInfo.SpawnPoint;
+        otherPlayers.Clear();  // 이전 Zone의 플레이어 정보 클리어
 
         Console.WriteLine($"[Player-{playerId}] Entered zone: {msg.ZoneInfo.Name}");
         Console.WriteLine($"[Player-{playerId}] Zone type: {msg.ZoneInfo.Type}");
         Console.WriteLine($"[Player-{playerId}] Spawned at ({currentPosition.X}, {currentPosition.Y})");
 
+        SaveToDatabase();
         // 클라이언트에게 Zone 정보 전달
         clientConnection?.Tell(new ChatToClient("System",
             $"Entered {msg.ZoneInfo.Name} at ({currentPosition.X}, {currentPosition.Y})"));
@@ -267,8 +281,17 @@ public class PlayerActor : ReceiveActor
 
     private void HandleSendChat(ChatMessage msg)
     {
-        // Zone에 채팅 메시지 전달
-        currentZone?.Tell(msg);
+        if (zoneManager == null)
+        {
+            Console.WriteLine($"[Player-{playerId}] ZoneManager not set, cannot chat");
+            clientConnection?.Tell(new ChatToClient("System", "Not connected to zone"));
+            return;
+        }
+
+        var chatInZone = new PlayerChatInZone(playerId, currentZoneId, msg.Message);
+        zoneManager.Tell(chatInZone);
+
+        Console.WriteLine($"[Player-{playerId}] Sending chat: {msg.Message}");
     }
 
     #endregion
@@ -333,8 +356,11 @@ public class PlayerActor : ReceiveActor
     protected override void PostStop()
     {
         Console.WriteLine($"[Player-{playerId}] Actor stopped. Total errors: {errorCount}");
+        // ZoneManager에 연결 해제 알림
+        zoneManager?.Tell(new UnregisterPlayer(playerId));
+        // 클라이언트 연결 종료 알림
         clientConnection?.Tell(new ChatToClient("System", "Player actor stopped"));
-        currentZone?.Tell(new RemovePlayerFromZone(Self, this.playerId));
+        
         base.PostStop();
     }
 
