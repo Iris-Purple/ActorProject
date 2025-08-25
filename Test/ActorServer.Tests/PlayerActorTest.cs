@@ -16,19 +16,97 @@ public class PlayerActorTests : AkkaTestKitBase
     [Fact]
     public void PlayerActor_Should_Create_With_PlayerId()
     {
-        using var test = SlowTest();
+        using var test = Test();
         // Arrange
         var playerId = 1001L;
-        test.LogInfo($"Creating PlayerActor with ID: {playerId}");
-        
         // Act
         var playerActor = Sys.ActorOf(
             Props.Create<PlayerActor>(playerId),
             $"test-player-{playerId}"
         );
-        
+
         // Assert
         playerActor.Should().NotBeNull();
         test.LogSuccess("PlayerActor created successfully");
+    }
+    [Fact]
+    public void PlayerActor_Should_Move_Successfully_With_Client_Feedback()
+    {
+        using var test = SlowTest();
+        // Arrange
+        var playerId = 1001L;
+        // Act
+        var playerActor = Sys.ActorOf(
+            Props.Create<PlayerActor>(playerId),
+            $"test-player-{playerId}"
+        );
+        var clientProbe = CreateTestProbe();
+
+        playerActor.Tell(new SetClientConnection(clientProbe));
+        clientProbe.ExpectMsg<ChatToClient>(TimeSpan.FromMilliseconds(100));
+
+        playerActor.Tell(new MoveCommand(new Position(10, 10)));
+        clientProbe.ExpectMsg<ChatToClient>(
+            msg => msg.Message.Contains("Moved to"),
+            TimeSpan.FromMilliseconds(100),
+            "Player should send movement confirmation to client");
+
+        test.LogSuccess("PlayerActor move successfully");
+    }
+    [Fact]
+    public void PlayerActor_Should_Reject_Invalid_NaN_Position()
+    {
+        using var test = SlowTest();
+        // Arrange
+        var playerId = 1001L;
+        // Act
+        var playerActor = Sys.ActorOf(
+            Props.Create<PlayerActor>(playerId),
+            $"test-player-{playerId}"
+        );
+        var clientProbe = CreateTestProbe();
+
+        playerActor.Tell(new SetClientConnection(clientProbe));
+        clientProbe.ExpectMsg<ChatToClient>(TimeSpan.FromSeconds(1));
+
+        playerActor.Tell(new MoveCommand(new Position(float.NaN, float.NaN)));
+        clientProbe.ExpectMsg<ChatToClient>(
+            msg => msg.Message.Contains("failed") ||
+                   msg.Message.Contains("NaN") ||
+                   msg.Message.Contains("invalid"),
+            TimeSpan.FromSeconds(1),
+            "Should reject NaN cooridnates");
+
+        test.LogSuccess("PlayerActor invalid Move Position");
+    }
+    [Fact]
+    public void PlayerActor_Should_Remove_From_Zone_On_Stop()
+    {
+        using var test = Test();
+
+        // Arrange
+        var playerId = 1001L;
+        // Act
+        var playerActor = Sys.ActorOf(
+            Props.Create<PlayerActor>(playerId),
+            $"test-player-{playerId}"
+        );
+        var zoneProbe = CreateTestProbe("zone");
+
+        // Zone 설정
+        playerActor.Tell(new SetZone(zoneProbe), TestActor);
+        Thread.Sleep(100); // playerActor 먼저 종료되는거 방지
+
+        // Act - Actor 종료
+        test.LogInfo("Stopping PlayerActor");
+        Sys.Stop(playerActor);
+
+        // Assert - Zone에 RemovePlayerFromZone 메시지가 전송되어야 함
+        test.LogInfo("PlayerActor 종료시  RemovePlayerFromZone 메시지 전달");
+        var removeMsg = zoneProbe.ExpectMsg<RemovePlayerFromZone>(TimeSpan.FromSeconds(1));
+        removeMsg.Should().NotBeNull();
+        removeMsg.PlayerId.Should().Be(playerId);
+
+        test.LogSuccess("Player removed from zone on stop");
     }
 }

@@ -49,14 +49,14 @@ public abstract class AkkaTestKitBase : TestKit
     /// <summary>
     /// 테스트 시작 - 기본 설정 (100ms Actor 대기)
     /// </summary>
-    protected TestScope Test([CallerMemberName] string testName = "")
-        => new TestScope(Output, testName, 100);
+    protected TestScope Test(int milliseconds = 100, [CallerMemberName] string testName = "")
+        => new TestScope(Output, testName, milliseconds);
 
     /// <summary>
     /// 테스트 시작 - 긴 Actor 대기 (복잡한 Actor 테스트용)
     /// </summary>
     protected TestScope SlowTest([CallerMemberName] string testName = "")
-        => new TestScope(Output, testName, 1000);
+        => new TestScope(Output, testName, 2000);
 
 
     // ========================================
