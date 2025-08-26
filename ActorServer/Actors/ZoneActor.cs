@@ -16,9 +16,6 @@ public class ZoneActor : ReceiveActor
     private readonly Dictionary<IActorRef, PlayerInfo> _playersInZone = new();
     private readonly Dictionary<long, IActorRef> _playerIdToActor = new();  // PlayerId -> Actor 매핑
     
-    // Zone 통계
-    private int _totalMessagesProcessed = 0;
-    private int _totalPlayersJoined = 0;
     private readonly DateTime _createdTime = DateTime.Now;
     
     // Zone 설정
@@ -89,7 +86,6 @@ public class ZoneActor : ReceiveActor
             // 플레이어 추가
             _playersInZone[playerActor] = playerInfo;
             _playerIdToActor[playerId] = playerActor;
-            _totalPlayersJoined++;
             
             // 플레이어에게 Zone 진입 알림
             playerActor.Tell(new ZoneEntered(_zoneInfo));
@@ -102,8 +98,6 @@ public class ZoneActor : ReceiveActor
             
             Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Player {playerId} entered. " +
                             $"({_playersInZone.Count}/{_zoneInfo.MaxPlayers} players)");
-            
-            _totalMessagesProcessed++;
         }
         catch (Exception ex)
         {
@@ -131,8 +125,6 @@ public class ZoneActor : ReceiveActor
                 Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Player {playerId} left. " +
                                 $"({_playersInZone.Count}/{_zoneInfo.MaxPlayers} players)");
             }
-            
-            _totalMessagesProcessed++;
         }
         catch (Exception ex)
         {
@@ -185,15 +177,6 @@ public class ZoneActor : ReceiveActor
                     newPosition,
                     range: 200f  // 200 단위 내 플레이어에게만
                 );
-                
-                // 디버그 로그 (매 100번째 이동만)
-                if (_totalMessagesProcessed % 100 == 0)
-                {
-                    Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Player {updatedInfo.PlayerId} " +
-                                    $"moved to ({newPosition.X:F1}, {newPosition.Y:F1})");
-                }
-                
-                _totalMessagesProcessed++;
             }
             else
             {
@@ -248,8 +231,6 @@ public class ZoneActor : ReceiveActor
                     BroadcastToAll(broadcast);
                     break;
             }
-            
-            _totalMessagesProcessed++;
         }
         catch (Exception ex)
         {
@@ -404,13 +385,7 @@ public class ZoneActor : ReceiveActor
 
     protected override void PostStop()
     {
-        var uptime = DateTime.Now - _createdTime;
         Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Stopped.");
-        Console.WriteLine($"  - Uptime: {uptime.TotalMinutes:F1} minutes");
-        Console.WriteLine($"  - Total players joined: {_totalPlayersJoined}");
-        Console.WriteLine($"  - Messages processed: {_totalMessagesProcessed}");
-        Console.WriteLine($"  - Current players: {_playersInZone.Count}");
-        
         base.PostStop();
     }
 

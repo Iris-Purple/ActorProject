@@ -264,7 +264,6 @@ public class ZoneManager : ReceiveActor
         if (_playerActors.TryGetValue(msg.PlayerId, out var playerActor))
         {
             zoneActor.Tell(new PlayerMovement(playerActor, msg.NewPosition));
-            Console.WriteLine("******* Sender: {0}", Sender);
             Sender.Tell(new ZoneMessageResult(true));
         }
     }

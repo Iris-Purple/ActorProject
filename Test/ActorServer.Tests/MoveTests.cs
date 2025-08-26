@@ -47,6 +47,10 @@ namespace ActorServer.Tests
             playerProbe.ExpectMsg<ZoneMessageResult>(
                 msg => msg.Success == true,
                 TimeSpan.FromMilliseconds(100));
+
+            var invalidPosition = new Position(300, 100);
+            test.LogError($"잘못된 경로 위치 이동시 Exception 발생 : {invalidPosition}");
+            playerActor.Tell(new MoveCommand(invalidPosition), playerProbe);
         }
     }
 }
