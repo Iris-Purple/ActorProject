@@ -68,7 +68,6 @@ public record OutOfBoundWarning(string ZoneId);
 // Zone 내 플레이어 상태
 // ============================================
 
-public record CurrentPlayersInZone(IEnumerable<PlayerInfo> Players);
 public record PlayerJoinedZone(PlayerInfo Player);
 public record PlayerLeftZone(long PlayerId);
 

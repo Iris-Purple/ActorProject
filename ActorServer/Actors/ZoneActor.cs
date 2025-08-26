@@ -56,6 +56,7 @@ public class ZoneActor : ReceiveActor
 
     private void HandleAddPlayer(AddPlayerToZone msg)
     {
+        Console.WriteLine("****** add player zone: {0}", msg);
         try
         {
             var playerActor = msg.PlayerActor;
@@ -75,7 +76,7 @@ public class ZoneActor : ReceiveActor
                 Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Zone full! ({_playersInZone.Count}/{_zoneInfo.MaxPlayers})");
                 return;
             }
-            
+
             // 플레이어 정보 생성
             var playerInfo = new PlayerInfo(
                 playerActor,
@@ -89,9 +90,6 @@ public class ZoneActor : ReceiveActor
             
             // 플레이어에게 Zone 진입 알림
             playerActor.Tell(new ZoneEntered(_zoneInfo));
-            
-            // 현재 Zone의 다른 플레이어 정보 전송
-            SendCurrentPlayersInfo(playerActor);
             
             // 다른 플레이어들에게 새 플레이어 입장 알림
             BroadcastToOthers(playerActor, new PlayerJoinedZone(playerInfo));
@@ -131,21 +129,6 @@ public class ZoneActor : ReceiveActor
             Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Error removing player: {ex.Message}");
         }
     }
-
-    private void SendCurrentPlayersInfo(IActorRef newPlayer)
-    {
-        var otherPlayers = _playersInZone
-            .Where(kvp => kvp.Key != newPlayer)
-            .Select(kvp => kvp.Value)
-            .ToList();
-        
-        if (otherPlayers.Any())
-        {
-            newPlayer.Tell(new CurrentPlayersInZone(otherPlayers));
-            Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Sent {otherPlayers.Count} player info to new player");
-        }
-    }
-
     #endregion
 
     #region 플레이어 액션 처리
@@ -156,7 +139,8 @@ public class ZoneActor : ReceiveActor
         {
             var playerActor = msg.PlayerActor;
             var newPosition = msg.NewPosition;
-            
+
+            Console.WriteLine("********** 1: {0}", msg.PlayerActor);
             if (_playersInZone.TryGetValue(playerActor, out var playerInfo))
             {
                 // 위치 업데이트
@@ -169,7 +153,7 @@ public class ZoneActor : ReceiveActor
                     playerActor.Tell(new OutOfBoundWarning(_zoneInfo.ZoneId));
                     Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Player {updatedInfo.PlayerId} out of bounds!");
                 }
-                
+
                 // 근처 플레이어들에게만 위치 업데이트 브로드캐스트 (최적화)
                 BroadcastToNearbyPlayers(
                     playerActor,

@@ -147,7 +147,7 @@ public class ZoneManager : ReceiveActor
             
             // PlayerActor에 ZoneManager 참조 전달
             playerActor.Tell(new SetZoneManager(Self));
-            
+
             // 초기 Zone 설정 (있는 경우)
             if (!string.IsNullOrEmpty(msg.InitialZone))
             {
@@ -210,7 +210,7 @@ public class ZoneManager : ReceiveActor
                     Console.WriteLine($"[ZoneManager] Removing player {playerId} from {currentZoneId}");
                 }
             }
-            
+
             // 새 Zone에 추가
             var newZone = _zones[targetZoneId];
             newZone.Tell(new AddPlayerToZone(playerActor, playerId));
@@ -259,7 +259,7 @@ public class ZoneManager : ReceiveActor
             Sender.Tell(new ZoneMessageResult(false, "Zone not found"));
             return;
         }
-        
+
         // 4. Zone에 이동 전달
         if (_playerActors.TryGetValue(msg.PlayerId, out var playerActor))
         {

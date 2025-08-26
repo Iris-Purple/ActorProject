@@ -39,7 +39,6 @@ public class PlayerActor : ReceiveActor
         Receive<SetClientConnection>(HandleSetClientConnection);
 
         // ===== Zone 관련 메시지 =====
-        Receive<CurrentPlayersInZone>(HandleZoneInfo);
         Receive<PlayerPositionUpdate>(HandleOtherPlayerMove);
         Receive<PlayerJoinedZone>(HandlePlayerJoined);
         Receive<PlayerLeftZone>(HandlePlayerLeft);
@@ -215,22 +214,6 @@ public class PlayerActor : ReceiveActor
         Console.WriteLine($"[Player-{playerId}] WARNING: Out of zone {msg.ZoneId} boundaries!");
         clientConnection?.Tell(new ChatToClient("System", "Warning: Out of zone boundaries!"));
     }
-
-    private void HandleZoneInfo(CurrentPlayersInZone msg)
-    {
-        Console.WriteLine($"[Player-{playerId}] Received zone info. Players in zone:");
-
-        otherPlayers.Clear();
-        foreach (var otherPlayer in msg.Players)
-        {
-            if (playerId != otherPlayer.PlayerId)
-            {
-                otherPlayers[otherPlayer.PlayerId] = otherPlayer.Position;
-                Console.WriteLine($" - {playerId} (ID:{otherPlayer.PlayerId}) at ({otherPlayer.Position.X}, {otherPlayer.Position.Y})");
-            }
-        }
-    }
-
     #endregion
 
     #region 다른 플레이어 관련 핸들러
@@ -304,7 +287,7 @@ public class PlayerActor : ReceiveActor
         Console.WriteLine($"[Player-{playerId}] Client connection established");
 
         // 연결 성공 메시지
-        clientConnection.Tell(new ChatToClient("System", $"Connected to player "));
+        // clientConnection.Tell(new ChatToClient("System", $"Connected to player "));
     }
 
     #endregion
