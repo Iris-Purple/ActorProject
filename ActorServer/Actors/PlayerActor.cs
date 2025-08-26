@@ -117,7 +117,7 @@ public class PlayerActor : ReceiveActor
 
             // ZoneManager를 통해 이동
             var moveInZone = new PlayerMoveInZone(playerId, currentZoneId, currentPosition);
-            zoneManager.Tell(moveInZone, Self);  // Self로 응답 받기
+            zoneManager.Tell(moveInZone, Sender);
 
             Console.WriteLine($"[Player-{playerId}] Moving from ({oldPosition.X:F1}, {oldPosition.Y:F1}) to ({currentPosition.X:F1}, {currentPosition.Y:F1})");
             SaveToDatabase();
