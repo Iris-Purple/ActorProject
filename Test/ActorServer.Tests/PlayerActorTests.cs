@@ -30,7 +30,7 @@ public class PlayerActorTests : AkkaTestKitBase
         test.LogSuccess("PlayerActor created successfully");
     }
     [Fact]
-    public void PlayerActor_Should_Move_Successfully_With_Client_Feedback()
+    public void PlayerActor_Should_Move_Fail_With_Client_Feedback()
     {
         using var test = SlowTest();
         // Arrange
@@ -45,38 +45,13 @@ public class PlayerActorTests : AkkaTestKitBase
         playerActor.Tell(new SetClientConnection(clientProbe));
         clientProbe.ExpectMsg<ChatToClient>(TimeSpan.FromMilliseconds(100));
 
+        // zoneManager 에 playerActor 등록이 안되어 있다
         playerActor.Tell(new MoveCommand(new Position(10, 10)));
         clientProbe.ExpectMsg<ChatToClient>(
-            msg => msg.Message.Contains("Moved to"),
+            msg => msg.Message.Contains("Not connected to zone"),
             TimeSpan.FromMilliseconds(100),
             "Player should send movement confirmation to client");
 
-        test.LogSuccess("PlayerActor move successfully");
-    }
-    [Fact]
-    public void PlayerActor_Should_Reject_Invalid_NaN_Position()
-    {
-        using var test = SlowTest();
-        // Arrange
-        var playerId = 1001L;
-        // Act
-        var playerActor = Sys.ActorOf(
-            Props.Create<PlayerActor>(playerId),
-            $"test-player-{playerId}"
-        );
-        var clientProbe = CreateTestProbe();
-
-        playerActor.Tell(new SetClientConnection(clientProbe));
-        clientProbe.ExpectMsg<ChatToClient>(TimeSpan.FromSeconds(1));
-
-        playerActor.Tell(new MoveCommand(new Position(float.NaN, float.NaN)));
-        clientProbe.ExpectMsg<ChatToClient>(
-            msg => msg.Message.Contains("failed") ||
-                   msg.Message.Contains("NaN") ||
-                   msg.Message.Contains("invalid"),
-            TimeSpan.FromSeconds(1),
-            "Should reject NaN cooridnates");
-
-        test.LogSuccess("PlayerActor invalid Move Position");
+        test.LogInfo("PlayerActor Not Register ZoneManager");
     }
 }

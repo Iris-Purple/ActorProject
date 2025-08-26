@@ -115,7 +115,7 @@ public class PlayerActor : ReceiveActor
             var oldPosition = currentPosition;
             currentPosition = cmd.NewPosition;
 
-            // 변경: ZoneManager를 통해 이동
+            // ZoneManager를 통해 이동
             var moveInZone = new PlayerMoveInZone(playerId, currentZoneId, currentPosition);
             zoneManager.Tell(moveInZone, Self);  // Self로 응답 받기
 
