@@ -14,7 +14,7 @@ class Program
 
         // TCP 서버 시작
         var tcpServer = system.ActorOf(
-            Props.Create(() => new TcpServerActor(worldActor, 9999)),
+            Props.Create(() => new TcpServerActor(9999)),
             "tcp-server"
         );
 

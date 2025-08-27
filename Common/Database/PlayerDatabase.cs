@@ -75,7 +75,7 @@ public class PlayerDatabase
                     player_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     position_x REAL DEFAULT 0,
                     position_y REAL DEFAULT 0,
-                    zone_id TEXT DEFAULT 'town',
+                    zone_id INTEGER DEFAULT 0,
                     first_login TEXT NOT NULL,
                     last_login TEXT NOT NULL,
                     last_saved TEXT
@@ -114,7 +114,7 @@ public class PlayerDatabase
         cmd.CommandText = @"
             INSERT INTO player_states 
             (player_id, position_x, position_y, zone_id, first_login, last_login, last_saved)
-            VALUES (@id, 0, 0, 'town', @now, @now, @now)";
+            VALUES (@id, 0, 0, 0, @now, @now, @now)";
 
         var now = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         cmd.Parameters.AddWithValue("@id", playerId);
@@ -145,7 +145,7 @@ public class PlayerDatabase
                 PlayerId = playerId,
                 X = reader.GetFloat(0),
                 Y = reader.GetFloat(1),
-                ZoneId = reader.GetString(2),
+                ZoneId = reader.GetInt32(2),
                 FirstLogin = reader.GetString(3),
                 LastLogin = reader.GetString(4)
             };
@@ -158,7 +158,7 @@ public class PlayerDatabase
         return null;
     }
 
-    public void SavePlayer(long playerId, float x, float y, string zone)
+    public void SavePlayer(long playerId, float x, float y, int zone)
     {
         using var conn = new SqliteConnection($"Data Source={_dbPath}");
         conn.Open();
@@ -185,7 +185,7 @@ public class PlayerDatabase
         }
     }
 
-    public (float x, float y, string zone)? LoadPlayer(long playerId)
+    public (float x, float y, int zone)? LoadPlayer(long playerId)
     {
         var data = LoadPlayerData(playerId);
         if (data != null)
@@ -226,7 +226,7 @@ public class PlayerData
     public long PlayerId { get; set; }
     public float X { get; set; }
     public float Y { get; set; }
-    public string ZoneId { get; set; } = "town";
+    public int ZoneId { get; set; } = 0;
     public string FirstLogin { get; set; } = string.Empty;
     public string LastLogin { get; set; } = string.Empty;
 }

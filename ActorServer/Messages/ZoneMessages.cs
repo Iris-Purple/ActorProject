@@ -1,27 +1,17 @@
 using Akka.Actor;
+using ActorServer.Zone;
 
 namespace ActorServer.Messages;
-
-// ============================================
-// Zone 정보
-// ============================================
-
-public class ZoneInfo
-{
-    public string ZoneId { get; set; } = string.Empty;
-    public string Name { get; set; } = "";
-    public Position SpawnPoint { get; set; } = new(0, 0);
-    public int MaxPlayers { get; set; } = 100;
-}
 
 
 // ============================================
 // Zone Manager 메시지
 // ============================================
 
-public record ChangeZoneResponse(
-    bool Success, 
-    string Message
+public record ChangeZoneRequest(
+    IActorRef PlayerActor, 
+    long PlayerId,
+    ZoneId TargetZoneId
 );
 
 // ============================================
@@ -33,46 +23,11 @@ public record GetZoneStatus();
 
 public record ZoneStatus
 {
-    public ZoneInfo ZoneInfo { get; set; } = null!;
+    public ZoneData ZoneInfo { get; set; } = null!;
     public int PlayerCount { get; set; }
     public List<long> Players { get; set; } = new();
 }
 
-// ============================================
-// Zone 진입/퇴장 알림
-// ============================================
-
-public record ZoneEntered(ZoneInfo ZoneInfo);
-public record ZoneFull(string ZoneId);
-public record OutOfBoundWarning(string ZoneId);
-
-// ============================================
-// Zone 내 플레이어 상태
-// ============================================
-
-public record PlayerJoinedZone(PlayerInfo Player);
-public record PlayerLeftZone(long PlayerId);
-
-public record PlayerPositionUpdate(
-    long PlayerId,
-    Position NewPosition
-);
-
-public record AddPlayerToZone(
-    IActorRef PlayerActor, 
-    long PlayerId
-);
-
-public record RemovePlayerFromZone(
-    IActorRef PlayerActor,
-    long PlayerId
-);
-
-public record ChangeZoneRequest(
-    IActorRef PlayerActor, 
-    long PlayerId,
-    string TargetZoneId
-);
 
 public record GetPlayersInZone(string ZoneId);
 public record PlayersInZoneResponse(string ZoneId, List<PlayerInfo> Players);

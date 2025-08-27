@@ -1,17 +1,20 @@
 using Akka.Actor;
 using ActorServer.Messages;
 
-namespace ActorServer.Actors;
+namespace ActorServer.Zone;
+
+
 /// <summary>
 /// Zone 로직만 담당하는 일반 클래스 (Actor 아님)
 /// </summary>
-public class Zone
+public class ZoneInfo
 {
-    private readonly ZoneInfo _info;
+    private readonly ZoneData _info;
     private readonly Dictionary<long, PlayerInfo> _players = new();
     private readonly object _lockObject = new();
 
-    public string ZoneId => _info.ZoneId;
+    public ZoneId ZoneId => _info.ZoneId;
+
     public int PlayerCount => _players.Count;
     public string Name => _info.Name;
     public int MaxPlayers => _info.MaxPlayers;
@@ -19,8 +22,9 @@ public class Zone
 
 
     public bool IsFull => _info.MaxPlayers > 0 && PlayerCount >= _info.MaxPlayers;
+    public ZoneData Data => _info;
 
-    public Zone(ZoneInfo info)
+    public ZoneInfo(ZoneData info)
     {
         _info = info;
     }

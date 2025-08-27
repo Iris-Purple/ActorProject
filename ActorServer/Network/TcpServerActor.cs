@@ -6,10 +6,8 @@ namespace ActorServer.Network;
 
 public class TcpServerActor : ReceiveActor
 {
-    private readonly IActorRef _worldActor;
-    public TcpServerActor(IActorRef worldActor, int port = 9999)
+    public TcpServerActor(int port = 9999)
     {
-        _worldActor = worldActor;
         Context.System.Tcp().Tell(new Tcp.Bind(Self, new IPEndPoint(IPAddress.Any, port)));
         Receive<Tcp.Bound>(bound =>
         {
@@ -20,7 +18,7 @@ public class TcpServerActor : ReceiveActor
             Console.WriteLine($"[TCP] Client connected from {connected.RemoteAddress}");
             var connection = Sender;
             var handler = Context.ActorOf(
-                Props.Create(() => new ClientConnectionActor(connection, _worldActor)), $"client-{Guid.NewGuid()}");
+                Props.Create(() => new ClientConnectionActor(connection)), $"client-{Guid.NewGuid()}");
             connection.Tell(new Tcp.Register(handler));
         });
         Receive<Tcp.CommandFailed>(failed =>

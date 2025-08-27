@@ -26,7 +26,7 @@ public class ZonePacketHandler : IPacketHandler
         var targetZone = zonePacket.ZoneName.Trim();
         
         // WorldActor에 Zone 변경 요청
-        context.TellWorldActor(new RequestZoneChange(context.PlayerId, targetZone));
+        //context.TellWorldActor(new RequestZoneChange(context.PlayerId, targetZone));
         
         // 요청 확인 메시지
         context.SendPacket(new SystemMessagePacket

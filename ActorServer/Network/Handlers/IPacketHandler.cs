@@ -18,14 +18,12 @@ public interface IPacketHandler
 public class ClientConnectionContext
 {
     public IActorRef Connection { get; }
-    public IActorRef WorldActor { get; }
     public IActorRef Self { get; }
     public long PlayerId { get; set;}
 
-    public ClientConnectionContext(IActorRef connection, IActorRef worldActor, IActorRef self)
+    public ClientConnectionContext(IActorRef connection, IActorRef self)
     {
         Connection = connection;
-        WorldActor = worldActor;
         Self = self;
     }
     public void SendPacket<T>(T packet) where T : Packet
@@ -33,5 +31,4 @@ public class ClientConnectionContext
         var bytes = PacketSerializer.SerializeToBytes(packet);
         Connection.Tell(Tcp.Write.Create(bytes), Self);
     }
-    public void TellWorldActor(object message) => WorldActor.Tell(message, Self);
 }

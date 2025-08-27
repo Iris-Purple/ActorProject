@@ -12,28 +12,19 @@ namespace ActorServer.Network
     {
         private long _playerId;
         private readonly IActorRef _connection;
-        private readonly IActorRef _worldActor;
         private StringBuilder _receiveBuffer = new();
 
         // 추가: 패킷 핸들러 매니저와 컨텍스트
         private readonly ClientConnectionContext _context;
         private readonly PacketHandlerManager _handlerManager;
 
-        public ClientConnectionActor(IActorRef connection, IActorRef worldActor)
+        public ClientConnectionActor(IActorRef connection)
         {
             _connection = connection;
-            _worldActor = worldActor;
 
             // 추가: 컨텍스트와 핸들러 매니저 초기화
-            _context = new ClientConnectionContext(connection, worldActor, Self);
+            _context = new ClientConnectionContext(connection, Self);
             _handlerManager = new PacketHandlerManager(_context);
-
-            // 웰컴 메시지
-            SendPacket(new SystemMessagePacket
-            {
-                Message = "Welcome! Please login with: /login <name>",
-                Level = "info"
-            });
 
             // TCP 메시지 수신
             Receive<Tcp.Received>(data =>
@@ -48,14 +39,8 @@ namespace ActorServer.Network
             Receive<Tcp.ConnectionClosed>(closed =>
             {
                 Console.WriteLine($"[Client] Connection closed");
-                _worldActor.Tell(new PlayerDisconnect(_context.PlayerId));
                 Context.Stop(Self);
             });
-
-            // Actor 간 메시지 처리
-            Receive<ChatToClient>(HandleChatToClient);
-            Receive<LoginFailed>(HandleLoginFailed);
-            Receive<ChangeZoneResponse>(HandleChangeZoneResponse);
         }
 
         /// <summary>
@@ -122,46 +107,7 @@ namespace ActorServer.Network
             }
         }
 
-        // === Actor 메시지 핸들러 ===
-
-        private void HandleChatToClient(ChatToClient msg)
-        {
-            // 채팅 메시지를 패킷으로 변환하여 클라이언트에 전송
-            var chatPacket = new ChatMessagePacket
-            {
-                PlayerName = msg.From,  // "System" 또는 플레이어 ID
-                Message = msg.Message,
-                IsSelf = msg.From == _playerId.ToString()  // 자신의 메시지인지 확인
-            };
-
-            SendPacket(chatPacket);
-        }
-
-        private void HandleLoginFailed(LoginFailed msg)
-        {
-            var packet = new LoginResponsePacket
-            {
-                Success = false,
-                Message = $"Login failed: {msg.Reason}"
-            };
-            SendPacket(packet);
-        }
-
-        private void HandleChangeZoneResponse(ChangeZoneResponse msg)
-        {
-            var packet = new ZoneChangeResponsePacket
-            {
-                Success = msg.Success,
-                ZoneName = msg.Success ? msg.Message : "",
-                Message = msg.Success
-                    ? $"Successfully moved to zone: {msg.Message}"
-                    : $"Failed to change zone: {msg.Message}"
-            };
-            SendPacket(packet);
-        }
-
         // === 헬퍼 메서드 ===
-
         private void SendPacket<T>(T packet) where T : Packet
         {
             var bytes = PacketSerializer.SerializeToBytes(packet);
@@ -180,7 +126,7 @@ namespace ActorServer.Network
         {
             if (_playerId > 0)
             {
-                _worldActor.Tell(new PlayerDisconnect(_playerId));
+                //_worldActor.Tell(new PlayerDisconnect(_playerId));
             }
             Console.WriteLine($"[ClientConnection] Player ID:{_playerId} disconnected");
             base.PostStop();

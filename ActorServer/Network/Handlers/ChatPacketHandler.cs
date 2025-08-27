@@ -18,8 +18,10 @@ public class ChatPacketHandler : IPacketHandler
             context.SendPacket(new ErrorMessagePacket { Error = "Not logged in" });
             return Task.CompletedTask;
         }
+        /*
         context.TellWorldActor(new PlayerCommand(context.PlayerId,
             new ChatMessage(context.PlayerId, sayPacket.Message)));
+        */
 
         Console.WriteLine($"[ChatHandler] {sayPacket.Message}");
 

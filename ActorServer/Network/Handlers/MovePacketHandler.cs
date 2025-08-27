@@ -20,8 +20,10 @@ public class MovePacketHandler : IPacketHandler
             return Task.CompletedTask;
         }
         // WorldActor에 이동 명령 전달
+        /*
         context.TellWorldActor(new PlayerCommand(context.PlayerId,
             new MoveCommand(new Position(movePacket.X, movePacket.Y))));
+        */
 
         // 이동 확인 응답
         context.SendPacket(new MoveNotificationPacket
