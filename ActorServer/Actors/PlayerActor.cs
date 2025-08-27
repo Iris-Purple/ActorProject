@@ -32,6 +32,9 @@ public class PlayerActor : ReceiveActor
         // ===== 클라이언트 연결 =====
         Receive<SetClientConnection>(HandleSetClientConnection);
 
+        // ===== 클라이언트 연결 =====
+        Receive<ZoneChanged>(HandleZoneChanged);
+
         // ===== 채팅 관련 메시지 =====
         Receive<ChatMessage>(HandleSendChat);
         
@@ -50,6 +53,13 @@ public class PlayerActor : ReceiveActor
         clientConnection?.Tell(msg);
     }
 
+    private void HandleZoneChanged(ZoneChanged msg)
+    {
+        Console.WriteLine($"[PlayerActor-{playerId}] ZoneChanged: {msg}");
+        currentZoneId = msg.NewZoneId;
+        currentPosition = msg.SpawnPosition;
+    }
+
     /// <summary>
     /// 플레이어 정보 조회
     /// </summary>
@@ -61,7 +71,7 @@ public class PlayerActor : ReceiveActor
             ZoneId: currentZoneId,
             IsOnline: clientConnection != null
         );
-        
+
         Sender.Tell(info);
     }
 

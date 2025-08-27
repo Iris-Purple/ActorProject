@@ -13,8 +13,7 @@ namespace ActorServer.Messages;
 /// </summary>
 public record ZoneChanged(
     ZoneId NewZoneId,
-    Position SpawnPosition,
-    int PlayerCount = 0
+    Position SpawnPosition
 );
 
 public record ZoneFull(ZoneId ZoneId);

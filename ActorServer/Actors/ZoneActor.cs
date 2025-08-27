@@ -124,8 +124,7 @@ public class ZoneActor : ReceiveActor
             // Zone 변경 알림
             playerActor.Tell(new ZoneChanged(
                 NewZoneId: targetZoneId,
-                SpawnPosition: targetZone.GetSpawnPoint(),
-                PlayerCount: targetZone.PlayerCount
+                SpawnPosition: targetZone.GetSpawnPoint()
             ));
 
             // 로그
