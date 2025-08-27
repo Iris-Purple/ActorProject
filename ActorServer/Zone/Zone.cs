@@ -30,7 +30,7 @@ public class ZoneInfo
     }
 
     // 플레이어 추가 (반환값으로 성공 여부 전달)
-    public (bool success, string message) TryAddPlayer(long playerId, IActorRef playerActor)
+    public (bool success, string message) TryAddPlayer(long playerId)
     {
         lock (_lockObject)
         {
@@ -40,7 +40,7 @@ public class ZoneInfo
             if (IsFull)
                 return (false, "Zone is full");
 
-            _players[playerId] = new PlayerInfo(playerActor, playerId, _info.SpawnPoint);
+            _players[playerId] = new PlayerInfo(playerId, _info.SpawnPoint);
             return (true, "Player added");
         }
     }
@@ -69,15 +69,6 @@ public class ZoneInfo
         lock (_lockObject)
         {
             return _players.TryGetValue(playerId, out var info) ? info : null;
-        }
-    }
-
-    // 추가: 플레이어 Actor만 가져오기
-    public IActorRef? GetPlayerActor(long playerId)
-    {
-        lock (_lockObject)
-        {
-            return _players.TryGetValue(playerId, out var info) ? info.Actor : null;
         }
     }
 

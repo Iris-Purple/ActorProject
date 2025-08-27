@@ -97,7 +97,7 @@ public class ZoneActor : ReceiveActor
             }
 
             // 4. 새 Zone에 추가
-            var (success, message) = targetZone.TryAddPlayer(playerId, playerActor);
+            var (success, message) = targetZone.TryAddPlayer(playerId);
 
             if (!success)
             {
@@ -106,7 +106,7 @@ public class ZoneActor : ReceiveActor
                 // 실패시 원래 Zone으로 복귀
                 if (previousZoneId != null && _zones.TryGetValue(previousZoneId.Value, out var previousZone))
                 {
-                    previousZone.TryAddPlayer(playerId, playerActor);
+                    previousZone.TryAddPlayer(playerId);
                     Console.WriteLine($"[ZoneActor] Player {playerId} restored to {previousZoneId}");
                 }
 
@@ -120,6 +120,9 @@ public class ZoneActor : ReceiveActor
             // 5. 성공 - PlayerActor에 알림
             Console.WriteLine($"[ZoneActor] Player {playerId} successfully moved to {targetZoneId}");
             Console.WriteLine($"[ZoneActor] {targetZoneId} population: {targetZone.PlayerCount}/{targetZone.MaxPlayers}");
+
+            // zone position memory update
+            targetZone.UpdatePlayerPosition(playerId, targetZone.GetSpawnPoint());
 
             // Zone 변경 알림
             playerActor.Tell(new ZoneChanged(

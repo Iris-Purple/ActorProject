@@ -36,6 +36,6 @@ public record PlayerInfoResponse(
     DateTime? LastActive = null
 );
 
-public record PlayerInfo(IActorRef Actor, long PlayerId, Position Position);
+public record PlayerInfo(long PlayerId, Position Position);
 
 public record SetClientConnection(IActorRef ClientActor);

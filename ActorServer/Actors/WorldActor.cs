@@ -6,7 +6,6 @@ namespace ActorServer.Actors;
 public class WorldActor : ReceiveActor
 {
     private Dictionary<long, IActorRef> players = new();
-    private Dictionary<long, IActorRef> clientConnections = new();
     private IActorRef zoneActor;
 
     protected override SupervisorStrategy SupervisorStrategy()
@@ -41,22 +40,13 @@ public class WorldActor : ReceiveActor
             Context.Watch(playerActor);
             players[playerId] = playerActor;
 
-            if (clientConnections.TryGetValue(playerId, out var clientActor))
-            {
-                playerActor.Tell(new SetClientConnection(clientActor));
-            }
-
-            //zoneActor.Tell(new ChangeZoneRequest(playerActor, playerId, "town"));
+            zoneActor.Tell(new ChangeZoneRequest(playerActor, playerId, Zone.ZoneId.Town));
             Console.WriteLine($"[World] Player (ID:{playerId}) logged in");
             Console.WriteLine($"[World] Total online players: {players.Count}");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[World] ERROR: Failed to create player {msg.PlayerId}: {ex.Message}");
-            if (clientConnections.TryGetValue(msg.PlayerId, out var client))
-            {
-                //client.Tell(new LoginFailed(msg.PlayerId, ex.Message));
-            }
         }
     }
 }
