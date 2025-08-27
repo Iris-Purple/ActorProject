@@ -13,7 +13,7 @@ public class PlayerActor : ReceiveActor
     // 플레이어 상태
     private Position currentPosition = new Position(0, 0);  // 기본값으로 초기화
     private IActorRef? clientConnection;
-    private IActorRef? zoneManager;
+    private IActorRef? zoneActor;
     private string currentZoneId = "town";
 
     // 다른 플레이어들의 정보 저장 (ID 기반)
@@ -96,7 +96,7 @@ public class PlayerActor : ReceiveActor
             {
                 throw new GameLogicException($"Move distance too large: {distance:F2}");
             }
-            if (zoneManager == null)
+            if (zoneActor == null)
             {
                 Console.WriteLine($"[Player-{playerId}] ZoneManager not set, cannot move");
                 clientConnection?.Tell(new ChatToClient("System", "Not connected to zone"));
@@ -108,7 +108,7 @@ public class PlayerActor : ReceiveActor
 
             // ZoneManager를 통해 이동
             var moveInZone = new PlayerMoveInZone(playerId, currentZoneId, currentPosition);
-            zoneManager.Tell(moveInZone, Sender);
+            zoneActor.Tell(moveInZone, Sender);
 
             Console.WriteLine($"[Player-{playerId}] Moving from ({oldPosition.X:F1}, {oldPosition.Y:F1}) to ({currentPosition.X:F1}, {currentPosition.Y:F1})");
             SaveToDatabase();
@@ -256,7 +256,7 @@ public class PlayerActor : ReceiveActor
 
     private void HandleSendChat(ChatMessage msg)
     {
-        if (zoneManager == null)
+        if (zoneActor == null)
         {
             Console.WriteLine($"[Player-{playerId}] ZoneManager not set, cannot chat");
             clientConnection?.Tell(new ChatToClient("System", "Not connected to zone"));
@@ -264,7 +264,7 @@ public class PlayerActor : ReceiveActor
         }
 
         var chatInZone = new PlayerChatInZone(playerId, currentZoneId, msg.Message);
-        zoneManager.Tell(chatInZone);
+        zoneActor.Tell(chatInZone);
 
         Console.WriteLine($"[Player-{playerId}] Sending chat: {msg.Message}");
     }
@@ -332,7 +332,7 @@ public class PlayerActor : ReceiveActor
     {
         Console.WriteLine($"[Player-{playerId}] Actor stopped. Total errors: {errorCount}");
         // ZoneManager에 연결 해제 알림
-        zoneManager?.Tell(new UnregisterPlayer(playerId));
+        zoneActor?.Tell(new UnregisterPlayer(playerId));
         // 클라이언트 연결 종료 알림
         clientConnection?.Tell(new ChatToClient("System", "Player actor stopped"));
         
