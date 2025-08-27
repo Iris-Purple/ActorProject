@@ -33,8 +33,7 @@ public class PlayerActor : ReceiveActor
         Receive<SetClientConnection>(HandleSetClientConnection);
 
         // ===== 채팅 관련 메시지 =====
-        Receive<SendChat>(HandleSendChat);
-        Receive<ChatBroadcast>(HandleChatBroadcast);
+        Receive<ChatMessage>(HandleSendChat);
         
         Receive<GetPlayerInfo>(HandleGetPlayerInfo);
 
@@ -45,19 +44,10 @@ public class PlayerActor : ReceiveActor
     /// <summary>
     /// 검증된 채팅 전송 (ZoneActor가 브로드캐스트)
     /// </summary>
-    private void HandleSendChat(SendChat msg)
+    private void HandleSendChat(ChatMessage msg)
     {
         Console.WriteLine($"[PlayerActor-{playerId}] Chat confirmed: {msg.Message}");
-        clientConnection?.Tell(new ChatToClient("You", msg.Message));
-    }
-
-    private void HandleChatBroadcast(ChatBroadcast msg)
-    {
-        if (msg.PlayerId != playerId) // 다른 플레이어 채팅만
-        {
-            Console.WriteLine($"[PlayerActor-{playerId}] Received chat from {msg.PlayerId}");
-            clientConnection?.Tell(new ChatToClient($"Player-{msg.PlayerId}", msg.Message));
-        }
+        clientConnection?.Tell(msg);
     }
 
     /// <summary>
@@ -79,10 +69,6 @@ public class PlayerActor : ReceiveActor
     {
         clientConnection = msg.ClientActor;
         Console.WriteLine($"[PlayerActor-{playerId}] Client connection established");
-        
-        // 연결 시 현재 상태 전송
-        clientConnection.Tell(new ChatToClient("System", 
-            $"Connected as Player-{playerId} in {currentZoneId} Position: ({currentPosition.X:F1}, {currentPosition.Y:F1})"));
     }
 
     private void LoadFromDatabase()
@@ -128,9 +114,6 @@ public class PlayerActor : ReceiveActor
         
         Console.WriteLine($"[PlayerActor-{playerId}] Stopped.");
         
-        // 클라이언트에 연결 종료 알림
-        clientConnection?.Tell(new ChatToClient("System", "Player disconnected"));
-        
         base.PostStop();
     }
 
@@ -153,7 +136,7 @@ public class PlayerActor : ReceiveActor
         LoadFromDatabase();
         
         // 클라이언트에 재연결 알림
-        clientConnection?.Tell(new ChatToClient("System", "Connection restored"));
+        clientConnection?.Tell(new ChatMessage("Connection restored"));
         
         base.PostRestart(reason);
     }
