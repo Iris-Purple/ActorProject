@@ -7,7 +7,7 @@ public class WorldActor : ReceiveActor
 {
     private Dictionary<long, IActorRef> players = new();
     private Dictionary<long, IActorRef> clientConnections = new();
-    private IActorRef zoneManager;
+    private IActorRef zoneActor;
 
     protected override SupervisorStrategy SupervisorStrategy()
     {
@@ -15,7 +15,7 @@ public class WorldActor : ReceiveActor
     }
     public WorldActor()
     {
-        zoneManager = Context.ActorOf(Props.Create<ZoneManager>(), "zone-manager");
+        zoneActor = Context.ActorOf(Props.Create<ZoneActor>(), "zone-manager");
 
         Receive<PlayerEnterWorld>(HandlePlayerEnterWorld);
         Receive<PlayerCommand>(HandlePlayerCommand);
@@ -51,7 +51,7 @@ public class WorldActor : ReceiveActor
                 playerActor.Tell(new SetClientConnection(clientActor));
             }
 
-            zoneManager.Tell(new ChangeZoneRequest(playerActor, playerId, "town"));
+            zoneActor.Tell(new ChangeZoneRequest(playerActor, playerId, "town"));
             Console.WriteLine($"[World] Player (ID:{playerId}) logged in");
             Console.WriteLine($"[World] Total online players: {players.Count}");
         }
@@ -130,7 +130,7 @@ public class WorldActor : ReceiveActor
     {
         if (players.TryGetValue(msg.PlayerId, out var playerActor))
         {
-            zoneManager.Tell(new ChangeZoneRequest(playerActor, msg.PlayerId, msg.TargetZoneId));
+            zoneActor.Tell(new ChangeZoneRequest(playerActor, msg.PlayerId, msg.TargetZoneId));
             Console.WriteLine($"[World] Zone change requested - Player:{msg.PlayerId} -> Zone:{msg.TargetZoneId}");
         }
         else

@@ -5,356 +5,263 @@ using ActorServer.Exceptions;
 namespace ActorServer.Actors;
 
 /// <summary>
-/// 개별 Zone을 관리하는 Actor
-/// Zone 내 플레이어 관리, 메시지 브로드캐스트 등
+/// Zone 관리를 담당하는 중앙 Actor
+/// 모든 Zone 관련 통신을 중계하고 검증
 /// </summary>
 public class ZoneActor : ReceiveActor
 {
-    private readonly ZoneInfo _zoneInfo;
-    
-    // Zone 내 플레이어 관리
-    private readonly Dictionary<IActorRef, PlayerInfo> _playersInZone = new();
-    private readonly Dictionary<long, IActorRef> _playerIdToActor = new();  // PlayerId -> Actor 매핑
-    
-    private readonly DateTime _createdTime = DateTime.Now;
-    
-    // Zone 설정
-    private const float ZONE_BOUNDARY = 500f;  // Zone 중심에서의 경계 거리
-    private const int BROADCAST_BATCH_SIZE = 50;  // 브로드캐스트 배치 크기
+    private readonly Dictionary<string, Zone> _zones = new();
 
-    public ZoneActor(ZoneInfo zoneInfo)
+    public ZoneActor()
     {
-        _zoneInfo = zoneInfo;
-        
+        InitializeZones();
         RegisterHandlers();
-        
-        Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Created: {_zoneInfo.Name}");
     }
+    private void InitializeZones()
+    {
+        _zones["town"] = new Zone(new ZoneInfo
+        {
+            ZoneId = "town",
+            Name = "Starting Town",
+            SpawnPoint = new Position(0, 0),
+            MaxPlayers = 100
+        });
+
+        _zones["forest"] = new Zone(new ZoneInfo
+        {
+            ZoneId = "forest",
+            Name = "Beginner Forest",
+            SpawnPoint = new Position(100, 100),
+            MaxPlayers = 100
+        });
+        Console.WriteLine($"[ZoneManager] Initialized {_zones.Count} zones");
+    }
+
 
     private void RegisterHandlers()
     {
-        // 플레이어 진입/퇴장
-        Receive<AddPlayerToZone>(HandleAddPlayer);
-        Receive<RemovePlayerFromZone>(HandleRemovePlayer);
-        
-        // 플레이어 액션
-        Receive<PlayerMovement>(HandlePlayerMovement);
-        Receive<ChatMessage>(HandleChatMessage);
-        
-        // Zone 정보 조회
-        Receive<GetZoneStatus>(HandleGetZoneStatus);
-        Receive<GetPlayersInZone>(HandleGetPlayersInZone);
-        
-        // 헬스 체크
-        Receive<CheckZoneHealth>(HandleCheckZoneHealth);
-        
-        // 브로드캐스트
-        Receive<BroadcastToZone>(HandleBroadcast);
+        // Zone 변경
+        Receive<ChangeZoneRequest>(HandleChangeZoneRequest);
+
+        // Player -> Zone 메시지
+        Receive<PlayerMoveInZone>(HandlePlayerMoveInZone);
+        Receive<PlayerChatInZone>(HandlePlayerChatInZone);
+        Receive<PlayerActionInZone>(HandlePlayerActionInZone);
+
+        // Zone -> Player 메시지 중계
+        Receive<PlayerPositionUpdate>(HandlePlayerPositionUpdate);
+        Receive<ChatBroadcast>(HandleChatBroadcast);
     }
 
-    #region 플레이어 진입/퇴장
 
-    private void HandleAddPlayer(AddPlayerToZone msg)
+    private void HandleChangeZoneRequest(ChangeZoneRequest msg)
     {
-        Console.WriteLine("****** add player zone: {0}", msg);
+        var playerActor = msg.PlayerActor;
+        var playerId = msg.PlayerId;
+        var targetZoneId = msg.TargetZoneId;
+
         try
         {
-            var playerActor = msg.PlayerActor;
-            var playerId = msg.PlayerId;
-            
-            // 이미 Zone에 있는 경우
-            if (_playerIdToActor.ContainsKey(playerId))
+            // 1. 대상 Zone 존재 확인
+            if (!_zones.ContainsKey(targetZoneId))
             {
-                Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Player {playerId} already in zone");
-                return;
-            }
-            
-            // Zone 최대 인원 체크
-            if (_zoneInfo.MaxPlayers > 0 && _playersInZone.Count >= _zoneInfo.MaxPlayers)
-            {
-                playerActor.Tell(new ZoneFull(_zoneInfo.ZoneId));
-                Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Zone full! ({_playersInZone.Count}/{_zoneInfo.MaxPlayers})");
+                playerActor.Tell(new ChangeZoneResponse(false, "Zone not found"));
+                Console.WriteLine($"[ZoneManager] Zone change failed - Zone not found: {targetZoneId}");
                 return;
             }
 
-            // 플레이어 정보 생성
-            var playerInfo = new PlayerInfo(
-                playerActor,
-                playerId,
-                _zoneInfo.SpawnPoint  // 스폰 포인트에서 시작
-            );
-            
-            // 플레이어 추가
-            _playersInZone[playerActor] = playerInfo;
-            _playerIdToActor[playerId] = playerActor;
-            
-            // 플레이어에게 Zone 진입 알림
-            playerActor.Tell(new ZoneEntered(_zoneInfo));
-            
-            // 다른 플레이어들에게 새 플레이어 입장 알림
-            BroadcastToOthers(playerActor, new PlayerJoinedZone(playerInfo));
-            
-            Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Player {playerId} entered. " +
-                            $"({_playersInZone.Count}/{_zoneInfo.MaxPlayers} players)");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Error adding player: {ex.Message}");
-            throw new ZoneException(_zoneInfo.ZoneId, $"Failed to add player: {ex.Message}", ex);
-        }
-    }
-
-    private void HandleRemovePlayer(RemovePlayerFromZone msg)
-    {
-        try
-        {
-            var playerActor = msg.PlayerActor;
-            var playerId = msg.PlayerId;
-            
-            if (_playersInZone.TryGetValue(playerActor, out var playerInfo))
+            var (currentZone, currentZoneId) = FindPlayerZone(playerId);
+            bool isFirstEntry = currentZone == null;
+            if (isFirstEntry)
             {
-                // 플레이어 제거
-                _playersInZone.Remove(playerActor);
-                _playerIdToActor.Remove(playerId);
-                
-                // 다른 플레이어들에게 퇴장 알림
-                BroadcastToOthers(playerActor, new PlayerLeftZone(playerId));
-                
-                Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Player {playerId} left. " +
-                                $"({_playersInZone.Count}/{_zoneInfo.MaxPlayers} players)");
+                //
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Error removing player: {ex.Message}");
+            Console.WriteLine($"[ZoneManager] Zone change error for player {playerId}: {ex.Message}");
+            playerActor.Tell(new ChangeZoneResponse(false, "Internal error"));
         }
     }
-    #endregion
 
-    #region 플레이어 액션 처리
-
-    private void HandlePlayerMovement(PlayerMovement msg)
+    private void HandlePlayerMoveInZone(PlayerMoveInZone msg)
     {
-        try
+        // 1. Player가 해당 Zone에 있는지 확인
+        if (!ValidatePlayerInZone(msg.PlayerId, msg.ZoneId))
         {
-            var playerActor = msg.PlayerActor;
-            var newPosition = msg.NewPosition;
+            Sender.Tell(new ZoneMessageResult(false, "Player not in specified zone"));
+            Console.WriteLine($"[ZoneManager] Move rejected - Player {msg.PlayerId} not in zone {msg.ZoneId}");
+            return;
+        }
 
-            Console.WriteLine("********** 1: {0}", msg.PlayerActor);
-            if (_playersInZone.TryGetValue(playerActor, out var playerInfo))
+        // 2. 이동 유효성 검사 (치트 방지)
+        if (!ValidateMovement(msg.PlayerId, msg.NewPosition))
+        {
+            Sender.Tell(new ZoneMessageResult(false, "Invalid movement detected"));
+            Console.WriteLine($"[ZoneManager] Move rejected - Invalid movement for player {msg.PlayerId}");
+            return;
+        }
+
+        // 3. Zone Actor 찾기
+        if (!_zones.TryGetValue(msg.ZoneId, out var zoneActor))
+        {
+            Sender.Tell(new ZoneMessageResult(false, "Zone not found"));
+            return;
+        }
+
+        // 4. Zone에 이동 전달
+        if (_playerActors.TryGetValue(msg.PlayerId, out var playerActor))
+        {
+            zoneActor.Tell(new PlayerMovement(playerActor, msg.NewPosition));
+            Sender.Tell(new ZoneMessageResult(true));
+        }
+    }
+
+    private void HandlePlayerChatInZone(PlayerChatInZone msg)
+    {
+        // 1. Player가 해당 Zone에 있는지 확인
+        if (!ValidatePlayerInZone(msg.PlayerId, msg.ZoneId))
+        {
+            Console.WriteLine($"[ZoneManager] Chat rejected - Player {msg.PlayerId} not in zone {msg.ZoneId}");
+            return;
+        }
+
+        // 2. 채팅 필터링 (욕설, 스팸 등)
+        if (!ValidateChatMessage(msg.Message))
+        {
+            Sender?.Tell(new ZoneMessageResult(false, "Message filtered"));
+            return;
+        }
+
+        // 3. Zone에 채팅 전달
+        if (_zones.TryGetValue(msg.ZoneId, out var zoneActor))
+        {
+            zoneActor.Tell(new ChatMessage(msg.PlayerId, msg.Message));
+
+            Console.WriteLine($"[ZoneManager] Chat from player {msg.PlayerId} in {msg.ZoneId}: {msg.Message}");
+        }
+    }
+
+    private void HandlePlayerActionInZone(PlayerActionInZone msg)
+    {
+        // Player 액션 처리 (스킬 사용, 아이템 사용 등)
+        if (!ValidatePlayerInZone(msg.PlayerId, msg.ZoneId))
+        {
+            Sender.Tell(new ZoneMessageResult(false, "Player not in zone"));
+            return;
+        }
+
+        // Zone에 액션 전달
+        if (_zones.TryGetValue(msg.ZoneId, out var zoneActor))
+        {
+            // 액션에 따른 처리
+            Console.WriteLine($"[ZoneManager] Player {msg.PlayerId} action '{msg.Action}' in {msg.ZoneId}");
+
+            // TODO: 액션별 처리 로직
+            Sender.Tell(new ZoneMessageResult(true, Data: msg.Data));
+        }
+    }
+
+    // 변경: 플레이어 Actor 찾기 헬퍼 메서드 추가
+    private IActorRef? GetPlayerActor(long playerId)
+    {
+        // Zone에서 플레이어 찾기
+        if (_playerZoneMap.TryGetValue(playerId, out var zoneId))
+        {
+            if (_zones.TryGetValue(zoneId, out var zone))
             {
-                // 위치 업데이트
-                var updatedInfo = playerInfo with { Position = newPosition };
-                _playersInZone[playerActor] = updatedInfo;
-                
-                // Zone 경계 체크
-                if (!IsWithinZoneBoundary(newPosition))
-                {
-                    playerActor.Tell(new OutOfBoundWarning(_zoneInfo.ZoneId));
-                    Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Player {updatedInfo.PlayerId} out of bounds!");
-                }
-
-                // 근처 플레이어들에게만 위치 업데이트 브로드캐스트 (최적화)
-                BroadcastToNearbyPlayers(
-                    playerActor,
-                    new PlayerPositionUpdate(updatedInfo.PlayerId, newPosition),
-                    newPosition,
-                    range: 200f  // 200 단위 내 플레이어에게만
-                );
+                var playerInfo = zone.GetPlayer(playerId);
+                return playerInfo?.Actor;
             }
-            else
+        }
+        return null;
+    }
+
+    // 추가: 플레이어가 어느 Zone에 있는지 찾기
+    private (Zone? zone, string? zoneId) FindPlayerZone(long playerId)
+    {
+        foreach (var kvp in _zones)
+        {
+            var player = kvp.Value.GetPlayer(playerId);
+            if (player != null)
             {
-                Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Movement from unknown player");
+                return (kvp.Value, kvp.Key);
             }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Error handling movement: {ex.Message}");
-            throw new TemporaryGameException($"Failed to process movement: {ex.Message}", ex);
-        }
+        return (null, null);
+    }
+    
+    // 추가: 플레이어 Actor 찾기
+    private IActorRef? FindPlayerActor(long playerId)
+    {
+        var (zone, _) = FindPlayerZone(playerId);
+        return zone?.GetPlayerActor(playerId);
     }
 
-    private void HandleChatMessage(ChatMessage msg)
+
+    #region Zone -> Player 메시지 중계
+
+    private void HandlePlayerPositionUpdate(PlayerPositionUpdate msg)
     {
-        try
-        {
-            var playerId = msg.PlayerId;
-            var message = msg.Message;
-            
-            Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Chat from {playerId}: {message}");
-            
-            // 채팅 브로드캐스트 생성
-            var broadcast = new ChatBroadcast(playerId, message, DateTime.Now);
-            
-            // Zone 타입에 따른 처리
-            switch (_zoneInfo.Type)
-            {
-                case ZoneType.SafeZone:
-                    // 안전 지역: 모든 플레이어에게 전송
-                    BroadcastToAll(broadcast);
-                    break;
-                    
-                case ZoneType.Field:
-                case ZoneType.Dungeon:
-                    // 필드/던전: 범위 내 플레이어에게만 전송
-                    if (_playerIdToActor.TryGetValue(playerId, out var senderActor) &&
-                        _playersInZone.TryGetValue(senderActor, out var senderInfo))
-                    {
-                        BroadcastToNearbyPlayers(
-                            senderActor,
-                            broadcast,
-                            senderInfo.Position,
-                            range: 150f  // 채팅 범위
-                        );
-                    }
-                    break;
-                    
-                case ZoneType.PvpZone:
-                    // PvP 지역: 팀 채팅 등 특별 처리
-                    // TODO: 팀 시스템 구현 시 처리
-                    BroadcastToAll(broadcast);
-                    break;
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Error handling chat: {ex.Message}");
-        }
+        // Zone에서 온 위치 업데이트를 관련 플레이어들에게 전달
+        // (필요시 구현)
     }
 
-    #endregion
-
-    #region Zone 정보 조회
-
-    private void HandleGetZoneStatus(GetZoneStatus msg)
+    private void HandleChatBroadcast(ChatBroadcast msg)
     {
-        var playerIds = _playersInZone.Values
-            .Select(p => p.PlayerId)
-            .ToList();
-        
-        var status = new ZoneStatus
-        {
-            ZoneInfo = _zoneInfo,
-            PlayerCount = _playersInZone.Count,
-            Players = playerIds
-        };
-        
-        Sender.Tell(status);
-        
-        Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Status requested - {_playersInZone.Count} players");
-    }
-
-    private void HandleGetPlayersInZone(GetPlayersInZone msg)
-    {
-        var players = _playersInZone.Values.ToList();
-        Sender.Tell(new PlayersInZoneResponse(_zoneInfo.ZoneId, players));
+        // Zone에서 온 채팅 브로드캐스트를 관련 플레이어들에게 전달
+        // (필요시 구현)
     }
 
     #endregion
 
-    #region 헬스 체크
 
-    private void HandleCheckZoneHealth(CheckZoneHealth msg)
+    #region 검증 메서드
+    private bool ValidatePlayerInZone(long playerId, string zoneId)
     {
-        var isHealthy = CheckZoneHealth();
-        
-        var healthStatus = new ZoneHealthStatus(
-            _zoneInfo.ZoneId,
-            isHealthy,
-            _playersInZone.Count
-        );
-        
-        Sender.Tell(healthStatus);
-        
-        if (!isHealthy)
-        {
-            Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Health check failed!");
-        }
+        return _playerZoneMap.TryGetValue(playerId, out var currentZone)
+               && currentZone == zoneId;
     }
 
-    private bool CheckZoneHealth()
+    private bool ValidateMovement(long playerId, Position newPosition)
     {
-        // Zone 상태 체크
-        if (_playersInZone.Count > _zoneInfo.MaxPlayers)
+        // 이동 속도 체크
+        // TODO: 이전 위치와 비교하여 속도 계산
+
+        // 맵 경계 체크
+        const float MAP_BOUNDARY = 10000f;
+        if (Math.Abs(newPosition.X) > MAP_BOUNDARY || Math.Abs(newPosition.Y) > MAP_BOUNDARY)
         {
-            return false;  // 과부하
+            return false;
         }
-        
-        // 메모리 사용량 체크 등
-        // TODO: 추가 헬스 체크 로직
-        
+
+        // 유효한 좌표인지 체크
+        if (!newPosition.IsValid())
+        {
+            return false;
+        }
+
         return true;
     }
 
-    #endregion
-
-    #region 브로드캐스트
-
-    private void HandleBroadcast(BroadcastToZone msg)
+    private bool ValidateChatMessage(string message)
     {
-        BroadcastToAll(msg.Message);
-    }
-
-    private void BroadcastToAll(object message)
-    {
-        // 배치 처리로 성능 최적화
-        var players = _playersInZone.Keys.ToList();
-        
-        for (int i = 0; i < players.Count; i += BROADCAST_BATCH_SIZE)
+        // 빈 메시지 체크
+        if (string.IsNullOrWhiteSpace(message))
         {
-            var batch = players.Skip(i).Take(BROADCAST_BATCH_SIZE);
-            foreach (var player in batch)
-            {
-                player.Tell(message);
-            }
+            return false;
         }
-    }
 
-    private void BroadcastToOthers(IActorRef sender, object message)
-    {
-        foreach (var player in _playersInZone.Keys)
+        // 메시지 길이 체크
+        if (message.Length > 500)
         {
-            if (player != sender)
-            {
-                player.Tell(message);
-            }
+            return false;
         }
-    }
 
-    private void BroadcastToNearbyPlayers(IActorRef sender, object message, Position center, float range)
-    {
-        var rangeSq = range * range;  // 제곱 거리로 비교 (최적화)
-        
-        foreach (var kvp in _playersInZone)
-        {
-            if (kvp.Key == sender) continue;  // 발신자 제외
-            
-            var playerInfo = kvp.Value;
-            var distanceSq = GetDistanceSquared(center, playerInfo.Position);
-            
-            if (distanceSq <= rangeSq)
-            {
-                kvp.Key.Tell(message);
-            }
-        }
-    }
+        // TODO: 욕설 필터링
+        // TODO: 스팸 체크
 
-    #endregion
-
-    #region 유틸리티 메서드
-
-    private bool IsWithinZoneBoundary(Position pos)
-    {
-        // Zone 중심에서 일정 거리 내에 있는지 체크
-        var distanceFromSpawn = pos.DistanceTo(_zoneInfo.SpawnPoint);
-        return distanceFromSpawn <= ZONE_BOUNDARY;
-    }
-
-    private float GetDistanceSquared(Position p1, Position p2)
-    {
-        var dx = p2.X - p1.X;
-        var dy = p2.Y - p1.Y;
-        return dx * dx + dy * dy;
+        return true;
     }
 
     #endregion
@@ -363,39 +270,13 @@ public class ZoneActor : ReceiveActor
 
     protected override void PreStart()
     {
-        Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Starting Zone Actor - {_zoneInfo.Name}");
+        Console.WriteLine("[ZoneManager] Starting...");
         base.PreStart();
-    }
-
-    protected override void PostStop()
-    {
-        Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Stopped.");
-        base.PostStop();
-    }
-
-    protected override void PreRestart(Exception reason, object message)
-    {
-        Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Restarting due to: {reason.Message}");
-        
-        // 모든 플레이어에게 Zone 재시작 알림
-        BroadcastToAll(new SystemMessage("Zone is restarting..."));
-        
-        base.PreRestart(reason, message);
-    }
-
-    protected override void PostRestart(Exception reason)
-    {
-        Console.WriteLine($"[Zone-{_zoneInfo.ZoneId}] Restarted successfully");
-        
-        // Zone 상태 복구
-        // TODO: 필요시 플레이어 재연결 처리
-        
-        base.PostRestart(reason);
     }
 
     protected override SupervisorStrategy SupervisorStrategy()
     {
-        return GameServerStrategies.ForZoneActor();
+        return GameServerStrategies.ForZoneManager();
     }
 
     #endregion

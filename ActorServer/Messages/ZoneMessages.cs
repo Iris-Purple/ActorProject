@@ -10,37 +10,19 @@ public class ZoneInfo
 {
     public string ZoneId { get; set; } = string.Empty;
     public string Name { get; set; } = "";
-    public ZoneType Type { get; set; }
-    public int MinLevel { get; set; }
-    public int MaxLevel { get; set; }
     public Position SpawnPoint { get; set; } = new(0, 0);
     public int MaxPlayers { get; set; } = 100;
 }
 
-public enum ZoneType
-{
-    SafeZone,
-    Field,
-    Dungeon,
-    PvpZone,
-    Raid
-}
 
 // ============================================
 // Zone Manager 메시지
 // ============================================
 
-public record GetZoneInfo(string ZoneId);
-public record ZoneInfoResponse(ZoneInfo Info);
-public record ZoneNotFound(string ZoneId);
-
 public record ChangeZoneResponse(
     bool Success, 
     string Message
 );
-
-public record GetAllZones();
-public record AllZonesResponse(IEnumerable<ZoneInfo> Zones);
 
 // ============================================
 // Zone Actor 메시지
@@ -74,17 +56,6 @@ public record PlayerLeftZone(long PlayerId);
 public record PlayerPositionUpdate(
     long PlayerId,
     Position NewPosition
-);
-
-// ============================================
-// Zone 헬스 체크
-// ============================================
-
-public record CheckZoneHealth();
-public record ZoneHealthStatus(
-    string ZoneId, 
-    bool IsHealthy, 
-    int PlayerCount
 );
 
 public record AddPlayerToZone(

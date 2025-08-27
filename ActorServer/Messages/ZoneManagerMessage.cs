@@ -3,25 +3,6 @@ using Akka.Actor;
 namespace ActorServer.Messages;
 
 /// <summary>
-/// PlayerActor에 ZoneManager 참조 설정
-/// </summary>
-public record SetZoneManager(IActorRef ZoneManager);
-
-/// <summary>
-/// ZoneManager에 Player 등록
-/// </summary>
-public record RegisterPlayer(
-    long PlayerId, 
-    IActorRef PlayerActor,
-    string InitialZone = "town"
-);
-
-/// <summary>
-/// ZoneManager에서 Player 제거
-/// </summary>
-public record UnregisterPlayer(long PlayerId);
-
-/// <summary>
 /// Player의 Zone 메시지 기본 클래스
 /// </summary>
 public abstract record PlayerZoneMessage(long PlayerId, string ZoneId);

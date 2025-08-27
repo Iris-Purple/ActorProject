@@ -31,7 +31,6 @@ public class PlayerActor : ReceiveActor
         LoadFromDatabase();
         Console.WriteLine($"[PlayerActor] Creating actor for (ID:{playerId})");
 
-        Receive<SetZoneManager>(HandleSetZoneManager);
         Receive<ZoneMessageResult>(HandleZoneMessageResult);
 
         // ===== 일반 게임 메시지 핸들러 =====
@@ -76,13 +75,6 @@ public class PlayerActor : ReceiveActor
         }
     }
 
-    private void HandleSetZoneManager(SetZoneManager msg)
-    {
-        zoneManager = msg.ZoneManager;
-        Console.WriteLine($"[Player-{playerId}] ZoneManager set");
-
-        clientConnection?.Tell(new ChatToClient("System", "Connected to Zone Manager"));
-    }
     private void HandleZoneMessageResult(ZoneMessageResult msg)
     {
         if (!msg.Success)
