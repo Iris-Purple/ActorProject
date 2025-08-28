@@ -2,12 +2,15 @@ using Akka.Actor;
 using ActorServer.Messages;
 using ActorServer.Zone;
 using ActorServer.Exceptions;
+using Common.Database;
 
 namespace ActorServer.Actors;
 
 public class ZoneActor : ReceiveActor
 {
     private readonly Dictionary<ZoneId, ZoneInfo> _zones = new();
+    private readonly PlayerDatabase _playerDb = PlayerDatabase.Instance;
+
 
     private const int DEFAULT_MAX_PLAYERS = 100;
 
@@ -18,8 +21,8 @@ public class ZoneActor : ReceiveActor
     }
     private void RegisterHandlers()
     {
-        // Zone 변경
         Receive<ChangeZoneRequest>(HandleChangeZoneRequest);
+        Receive<PlayerMove>(HandlePlayerMove);
     }
 
     private void InitializeZones()
@@ -55,103 +58,138 @@ public class ZoneActor : ReceiveActor
         var targetZoneId = msg.TargetZoneId;
 
         Console.WriteLine($"[ZoneActor] Zone change request - Player:{playerId} → Zone:{targetZoneId}");
-        try
+        // 1. 대상 Zone 존재 확인
+        if (!_zones.TryGetValue(targetZoneId, out var targetZone))
         {
-            // 1. 대상 Zone 존재 확인
-            if (!_zones.TryGetValue(targetZoneId, out var targetZone))
-            {
-                Console.WriteLine($"[ZoneActor] Zone not found: {targetZoneId}");
-
-                playerActor.Tell(new ErrorMessage(
-                    Type: ERROR_MSG_TYPE.ZONE_CHANGE_ERROR,
-                    Reason: $"ERROR: Zone not found ({targetZoneId})"));
-
-                return;
-            }
-
-            // 2. Zone 수용 가능 여부 확인
-            if (targetZone.IsFull)
-            {
-                Console.WriteLine($"[ZoneActor] Zone {targetZoneId} is full ({targetZone.PlayerCount}/{targetZone.MaxPlayers})");
-
-                playerActor.Tell(new ErrorMessage(
-                    Type: ERROR_MSG_TYPE.ZONE_CHANGE_ERROR,
-                    Reason: $"ERROR: {targetZoneId} is Full"
-                ));
-
-                playerActor.Tell(new ZoneFull(targetZoneId));
-                return;
-            }
-
-            // 3. 현재 Zone에서 제거 (있다면)
-            ZoneId? previousZoneId = null;
-            foreach (var kvp in _zones)
-            {
-                if (kvp.Value.HasPlayer(playerId))
-                {
-                    previousZoneId = kvp.Key;
-                    kvp.Value.RemovePlayer(playerId);
-                    Console.WriteLine($"[ZoneActor] Player {playerId} removed from {previousZoneId}");
-                    break;
-                }
-            }
-
-            // 4. 새 Zone에 추가
-            var (success, message) = targetZone.TryAddPlayer(playerId);
-
-            if (!success)
-            {
-                Console.WriteLine($"[ZoneActor] Failed to add player to zone: {message}");
-
-                // 실패시 원래 Zone으로 복귀
-                if (previousZoneId != null && _zones.TryGetValue(previousZoneId.Value, out var previousZone))
-                {
-                    previousZone.TryAddPlayer(playerId);
-                    Console.WriteLine($"[ZoneActor] Player {playerId} restored to {previousZoneId}");
-                }
-
-                playerActor.Tell(new ErrorMessage(
-                    Type: ERROR_MSG_TYPE.ZONE_CHANGE_ERROR,
-                    Reason: $"TryAddPlayer ERROR: {message}"
-                ));
-                return;
-            }
-
-            // 5. 성공 - PlayerActor에 알림
-            Console.WriteLine($"[ZoneActor] Player {playerId} successfully moved to {targetZoneId}");
-            Console.WriteLine($"[ZoneActor] {targetZoneId} population: {targetZone.PlayerCount}/{targetZone.MaxPlayers}");
-
-            // zone position memory update
-            targetZone.UpdatePlayerPosition(playerId, targetZone.GetSpawnPoint());
-
-            // Zone 변경 알림
-            playerActor.Tell(new ZoneChanged(
-                NewZoneId: targetZoneId,
-                SpawnPosition: targetZone.GetSpawnPoint()
-            ));
-
-            // 로그
-            if (previousZoneId != null)
-            {
-                Console.WriteLine($"[ZoneActor] Player {playerId}: {previousZoneId} → {targetZoneId}");
-            }
-            else
-            {
-                Console.WriteLine($"[ZoneActor] Player {playerId} initial spawn in {targetZoneId}");
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[ZoneActor] ERROR in zone change: {ex.Message}");
+            Console.WriteLine($"[ZoneActor] Zone not found: {targetZoneId}");
 
             playerActor.Tell(new ErrorMessage(
                 Type: ERROR_MSG_TYPE.ZONE_CHANGE_ERROR,
-                Reason: $"Exception: {ex.Message}"
+                Reason: $"ERROR: Zone not found ({targetZoneId})"));
+
+            return;
+        }
+
+        // 2. Zone 수용 가능 여부 확인
+        if (targetZone.IsFull)
+        {
+            Console.WriteLine($"[ZoneActor] Zone {targetZoneId} is full ({targetZone.PlayerCount}/{targetZone.MaxPlayers})");
+
+            playerActor.Tell(new ErrorMessage(
+                Type: ERROR_MSG_TYPE.ZONE_CHANGE_ERROR,
+                Reason: $"ERROR: {targetZoneId} is Full"
             ));
-            // Supervision에 의해 재시작될 수 있도록 예외 전파
-            throw new TemporaryGameException($"Zone change failed for player {playerId}", ex);
+
+            playerActor.Tell(new ZoneFull(targetZoneId));
+            return;
+        }
+
+        // 3. 현재 Zone에서 제거 (있다면)
+        ZoneId? previousZoneId = null;
+        foreach (var kvp in _zones)
+        {
+            if (kvp.Value.HasPlayer(playerId))
+            {
+                previousZoneId = kvp.Key;
+                kvp.Value.RemovePlayer(playerId);
+                Console.WriteLine($"[ZoneActor] Player {playerId} removed from {previousZoneId}");
+                break;
+            }
+        }
+
+        // 4. 새 Zone에 추가
+        var (success, message) = targetZone.TryAddPlayer(playerId);
+
+        if (!success)
+        {
+            Console.WriteLine($"[ZoneActor] Failed to add player to zone: {message}");
+
+            // 실패시 원래 Zone으로 복귀
+            if (previousZoneId != null && _zones.TryGetValue(previousZoneId.Value, out var previousZone))
+            {
+                previousZone.TryAddPlayer(playerId);
+                Console.WriteLine($"[ZoneActor] Player {playerId} restored to {previousZoneId}");
+            }
+
+            SavePlayerToDb(playerId, targetZone.GetSpawnPoint(), targetZoneId);
+
+            playerActor.Tell(new ErrorMessage(
+                Type: ERROR_MSG_TYPE.ZONE_CHANGE_ERROR,
+                Reason: $"TryAddPlayer ERROR: {message}"
+            ));
+            return;
+        }
+
+        // 5. 성공 - PlayerActor에 알림
+        Console.WriteLine($"[ZoneActor] Player {playerId} successfully moved to {targetZoneId}");
+        Console.WriteLine($"[ZoneActor] {targetZoneId} population: {targetZone.PlayerCount}/{targetZone.MaxPlayers}");
+
+        // zone position memory update
+        targetZone.UpdatePlayerPosition(playerId, targetZone.GetSpawnPoint());
+
+        // Zone 변경 알림
+        playerActor.Tell(new ZoneChanged(
+            NewZoneId: targetZoneId,
+            SpawnPosition: targetZone.GetSpawnPoint()
+        ));
+
+        // 로그
+        if (previousZoneId != null)
+            Console.WriteLine($"[ZoneActor] Player {playerId}: {previousZoneId} → {targetZoneId}");
+        else
+            Console.WriteLine($"[ZoneActor] Player {playerId} initial spawn in {targetZoneId}");
+    }
+    private void HandlePlayerMove(PlayerMove msg)
+    {
+        var playerActor = msg.PlayerActor;
+        var playerId = msg.PlayerId;
+        var newPosition = new Position(msg.X, msg.Y);
+
+        Console.WriteLine($"[ZoneActor] Move request - Player:{playerId} to ({newPosition})");
+        ZoneId? currentZoneId = null;
+        ZoneInfo? currentZone = null;
+
+        foreach (var kvp in _zones)
+        {
+            if (kvp.Value.HasPlayer(playerId))
+            {
+                currentZoneId = kvp.Key;
+                currentZone = kvp.Value;
+                break;
+            }
+        }
+        if (currentZoneId == null || currentZone == null)
+        {
+            Console.WriteLine($"[ZoneActor] Player {playerId} not found in any zone");
+            playerActor.Tell(new ErrorMessage(
+                Type: ERROR_MSG_TYPE.PLAYER_MOVE_ERROR,
+                Reason: $"ERROR: Not found Zone ({playerId})"));
+            return;
+        }
+
+        currentZone.UpdatePlayerPosition(playerId, newPosition);
+        playerActor.Tell(new PlayerMoved(
+            PlayerId: playerId,
+            X: newPosition.X,
+            Y: newPosition.Y));
+
+        SavePlayerToDb(playerId, newPosition, currentZoneId.Value);
+    }
+
+    private void SavePlayerToDb(long playerId, Position position, ZoneId zoneId)
+    {
+        try
+        {
+            _playerDb.SavePlayer(playerId, position.X, position.Y, (int)zoneId);
+            Console.WriteLine($"[ZoneActor] Saved to DB - Player:{playerId} Zone:{zoneId} Pos:({position.X:F1},{position.Y:F1})");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ZoneActor] DB save failed for player {playerId}: {ex.Message}");
+            // DB 저장 실패해도 게임은 계속 진행
         }
     }
+
 
     protected override void PreStart()
     {

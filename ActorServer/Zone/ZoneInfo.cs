@@ -15,14 +15,14 @@ public enum ZoneId
 public class ZoneData
 {
     public ZoneId ZoneId { get; set; }  // 변경: enum 사용
-    public string Name { get; set; } = "";
+    public string Name { get; set; } = string.Empty;
     public Position SpawnPoint { get; set; } = new(0, 0);
     public int MaxPlayers { get; set; } = 100;
 }
 
 public record Position(float X, float Y)
 {
-    public bool IsValid() => !float.IsNaN(X) && !float.IsNaN(Y) && 
+    public bool IsValid() => !float.IsNaN(X) && !float.IsNaN(Y) &&
                              !float.IsInfinity(X) && !float.IsInfinity(Y);
     
     public float DistanceTo(Position other)

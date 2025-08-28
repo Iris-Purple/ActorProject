@@ -20,11 +20,6 @@ public record ZoneFull(ZoneId ZoneId);
 
 public record ChatMessage(string Message);
 
-/// <summary>
-/// 플레이어 정보 조회 요청
-/// </summary>
-public record GetPlayerInfo();
-
 public record PlayerInfo(long PlayerId, Position Position);
 
 public record SetClientConnection(IActorRef ClientActor);

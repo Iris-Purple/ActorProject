@@ -14,22 +14,16 @@ public record ChangeZoneRequest(
     ZoneId TargetZoneId
 );
 
-// ============================================
-// Zone Actor 메시지
-// ============================================
+public record PlayerMove(
+    IActorRef PlayerActor, 
+    long PlayerId,
+    float X,
+    float Y
+);
 
-
-public record GetZoneStatus();
-
-public record ZoneStatus
-{
-    public ZoneData ZoneInfo { get; set; } = null!;
-    public int PlayerCount { get; set; }
-    public List<long> Players { get; set; } = new();
-}
-
-
-public record GetPlayersInZone(string ZoneId);
-public record PlayersInZoneResponse(string ZoneId, List<PlayerInfo> Players);
-public record BroadcastToZone(object Message);
-public record SystemMessage(string Message);
+// 추가: 이동 완료 응답
+public record PlayerMoved(
+    long PlayerId,
+    float X,
+    float Y
+);

@@ -24,8 +24,9 @@ public class PlayerActor : ReceiveActor
         // ===== 클라이언트 연결 =====
         Receive<SetClientConnection>(HandleSetClientConnection);
 
-        // ===== 클라이언트 연결 =====
+        // zone -> player
         Receive<ZoneChanged>(HandleZoneChanged);
+        Receive<PlayerMoved>(HandlePlayerMoved);
 
         // ===== 채팅 관련 메시지 =====
         Receive<ChatMessage>(HandleSendChat);
@@ -46,6 +47,11 @@ public class PlayerActor : ReceiveActor
     private void HandleZoneChanged(ZoneChanged msg)
     {
         Console.WriteLine($"[PlayerActor-{playerId}] ZoneChanged: {msg}");
+    }
+    private void HandlePlayerMoved(PlayerMoved msg)
+    {
+        Console.WriteLine($"[PlayerActor-{playerId}] Move confirmed to ({msg.X}, {msg.Y})");
+        clientConnection?.Tell(new ChatMessage($"Moved to ({msg.X:F1}, {msg.Y:F1})"));
     }
 
     private void HandleSetClientConnection(SetClientConnection msg)
