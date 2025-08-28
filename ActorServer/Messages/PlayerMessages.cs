@@ -25,17 +25,6 @@ public record ChatMessage(string Message);
 /// </summary>
 public record GetPlayerInfo();
 
-/// <summary>
-/// 플레이어 정보 응답 (PlayerActor → 요청자)
-/// </summary>
-public record PlayerInfoResponse(
-    long PlayerId,
-    Position Position,
-    ZoneId ZoneId,
-    bool IsOnline,
-    DateTime? LastActive = null
-);
-
 public record PlayerInfo(long PlayerId, Position Position);
 
 public record SetClientConnection(IActorRef ClientActor);

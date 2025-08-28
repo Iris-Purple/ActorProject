@@ -13,21 +13,13 @@ public class PlayerActor : ReceiveActor
 {
     // === 플레이어 식별자 ===
     private readonly long playerId;
-
-    // === 플레이어 상태 ===
-    private Position currentPosition = new Position(0, 0);
-    private ZoneId currentZoneId = ZoneId.Empty;
     private IActorRef? clientConnection;
-
-    // === 데이터베이스 ===
-    private readonly PlayerDatabase _db = PlayerDatabase.Instance;
 
     public PlayerActor(long playerId)
     {
         this.playerId = playerId;
         
-        LoadFromDatabase();
-        Console.WriteLine($"[PlayerActor-{playerId}] Actor created, Zone: {currentZoneId}");
+        Console.WriteLine($"[PlayerActor-{playerId}] Actor created");
 
         // ===== 클라이언트 연결 =====
         Receive<SetClientConnection>(HandleSetClientConnection);
@@ -38,8 +30,6 @@ public class PlayerActor : ReceiveActor
         // ===== 채팅 관련 메시지 =====
         Receive<ChatMessage>(HandleSendChat);
         
-        Receive<GetPlayerInfo>(HandleGetPlayerInfo);
-
         // ===== 에러 메시지 =====
         Receive<ErrorMessage>(HandleError);
     }
@@ -56,23 +46,6 @@ public class PlayerActor : ReceiveActor
     private void HandleZoneChanged(ZoneChanged msg)
     {
         Console.WriteLine($"[PlayerActor-{playerId}] ZoneChanged: {msg}");
-        currentZoneId = msg.NewZoneId;
-        currentPosition = msg.SpawnPosition;
-    }
-
-    /// <summary>
-    /// 플레이어 정보 조회
-    /// </summary>
-    private void HandleGetPlayerInfo(GetPlayerInfo msg)
-    {
-        var info = new PlayerInfoResponse(
-            PlayerId: playerId,
-            Position: currentPosition,
-            ZoneId: currentZoneId,
-            IsOnline: clientConnection != null
-        );
-
-        Sender.Tell(info);
     }
 
     private void HandleSetClientConnection(SetClientConnection msg)
@@ -81,35 +54,11 @@ public class PlayerActor : ReceiveActor
         Console.WriteLine($"[PlayerActor-{playerId}] Client connection established");
     }
 
-    private void LoadFromDatabase()
-    {
-        var data = _db.LoadPlayerData(playerId);
-        if (data != null)
-        {
-            currentPosition = new Position(data.X, data.Y);
-            currentZoneId = (ZoneId)data.ZoneId;
-            Console.WriteLine($"[PlayerActor-{playerId}] Loaded from DB - Zone: {currentZoneId}");
-        }
-        else
-        {
-            // 신규 플레이어
-            currentPosition = new Position(0, 0);
-            currentZoneId = 0;
-            Console.WriteLine($"[PlayerActor-{playerId}] New player initialized");
-        }
-    }
     private void HandleError(ErrorMessage err)
     {
         Console.WriteLine($"ERROR [PlayerActor-{playerId}]: {err}");
         clientConnection?.Tell(err);
     }
-
-    private void SaveToDatabase()
-    {
-        _db.SavePlayer(playerId, currentPosition.X, currentPosition.Y, (int)currentZoneId);
-        Console.WriteLine($"[PlayerActor-{playerId}] Saved to database");
-    }
-
 
     protected override void PreStart()
     {
@@ -119,9 +68,6 @@ public class PlayerActor : ReceiveActor
 
     protected override void PostStop()
     {
-        // 종료 시 상태 저장
-        SaveToDatabase();
-        
         Console.WriteLine($"[PlayerActor-{playerId}] Stopped.");
         
         base.PostStop();
@@ -132,18 +78,12 @@ public class PlayerActor : ReceiveActor
         Console.WriteLine($"[PlayerActor-{playerId}] PRE-RESTART: {reason.GetType().Name}");
         Console.WriteLine($"  Caused by message: {message?.GetType().Name ?? "null"}");
         
-        // 재시작 전 상태 저장
-        SaveToDatabase();
-        
         base.PreRestart(reason, message);
     }
 
     protected override void PostRestart(Exception reason)
     {
         Console.WriteLine($"[PlayerActor-{playerId}] POST-RESTART completed");
-        
-        // 재시작 후 상태 복구
-        LoadFromDatabase();
         
         // 클라이언트에 재연결 알림
         clientConnection?.Tell(new ChatMessage("Connection restored"));
