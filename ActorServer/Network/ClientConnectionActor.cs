@@ -126,7 +126,9 @@ namespace ActorServer.Network
         {
             if (_playerId > 0)
             {
-                //_worldActor.Tell(new PlayerDisconnect(_playerId));
+                var worldActor = Context.System.ActorSelection("/user/world");
+                worldActor.Tell(new ClientDisconnected(_playerId));
+                Console.WriteLine($"[ClientConnection] Notified WorldActor about Player {_playerId} disconnection");
             }
             Console.WriteLine($"[ClientConnection] Player ID:{_playerId} disconnected");
             base.PostStop();

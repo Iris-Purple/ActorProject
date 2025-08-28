@@ -23,6 +23,7 @@ public class ZoneActor : ReceiveActor
     {
         Receive<ChangeZoneRequest>(HandleChangeZoneRequest);
         Receive<PlayerMove>(HandlePlayerMove);
+        Receive<PlayerDisconnected>(HandlePlayerDisconnected);
     }
 
     private void InitializeZones()
@@ -175,6 +176,43 @@ public class ZoneActor : ReceiveActor
 
         SavePlayerToDb(playerId, newPosition, currentZoneId.Value);
     }
+    private void HandlePlayerDisconnected(PlayerDisconnected msg)
+    {
+        var playerId = msg.PlayerId;
+        Console.WriteLine($"[ZoneActor] Processing disconnection for Player {playerId}");
+
+        // 모든 Zone에서 해당 플레이어 찾기
+        ZoneId? foundZoneId = null;
+        ZoneInfo? foundZone = null;
+        foreach (var kvp in _zones)
+        {
+            if (kvp.Value.HasPlayer(playerId))
+            {
+                foundZoneId = kvp.Key;
+                foundZone = kvp.Value;
+                break;
+            }
+        }
+        if (foundZoneId == null || foundZone == null)
+        {
+            Console.WriteLine($"[ZoneActor] Player {playerId} not found in any zone");
+            return;
+        }
+
+        // Zone에서 플레이어 제거
+        if (foundZone.RemovePlayer(playerId))
+        {
+            Console.WriteLine($"[ZoneActor] Player {playerId} removed from {foundZoneId}");
+            Console.WriteLine($"[ZoneActor] {foundZoneId} population: {foundZone.PlayerCount}/{foundZone.MaxPlayers}");
+            // 추가: 다른 플레이어들에게 알림 (향후 구현)
+            // BroadcastToZone(foundZoneId, new PlayerLeftZone(playerId));
+        }
+        else
+        {
+            Console.WriteLine($"[ZoneActor] Failed to remove Player {playerId} from {foundZoneId}");
+        }
+    }
+
 
     private void SavePlayerToDb(long playerId, Position position, ZoneId zoneId)
     {

@@ -165,4 +165,179 @@ public class ZoneActorTests : AkkaTestKitBase
 
         scope.LogSuccess($"Actor reference worked - Player moved to ({moved.X}, {moved.Y})");
     }
+    /// <summary>
+    /// 테스트 5: PlayerDisconnected 메시지 처리 - 플레이어 제거
+    /// </summary>
+    [Fact]
+    public void ZoneActor_Should_Remove_Player_On_Disconnection()
+    {
+        using var scope = Test();
+
+        // Arrange
+        var playerProbe = CreateTestProbe("playerProbe");
+        var zoneActor = Sys.ActorOf(Props.Create<ZoneActor>(), "test-zone-disconnect");
+        const long testPlayerId = 2004;
+
+        scope.LogInfo($"Testing PlayerDisconnected for Player {testPlayerId}");
+
+        // Act 1 - 플레이어를 Town에 추가
+        zoneActor.Tell(new ChangeZoneRequest(playerProbe.Ref, testPlayerId, ZoneId.Town));
+        var response = playerProbe.ExpectMsg<ZoneChanged>(TimeSpan.FromSeconds(1));
+        response.NewZoneId.Should().Be(ZoneId.Town);
+        scope.LogSuccess("Player added to Town");
+
+        // Act 2 - 플레이어 연결 종료
+        zoneActor.Tell(new PlayerDisconnected(testPlayerId));
+        scope.LogWarning($"Sent PlayerDisconnected for Player {testPlayerId}");
+
+        Thread.Sleep(500); // 처리 대기
+
+        // Act 3 - 같은 플레이어로 다시 Zone 진입 시도 (제거되었으면 가능해야 함)
+        zoneActor.Tell(new ChangeZoneRequest(playerProbe.Ref, testPlayerId, ZoneId.Town));
+        var reconnectResponse = playerProbe.ExpectMsg<ZoneChanged>(TimeSpan.FromSeconds(1));
+
+        // Assert
+        reconnectResponse.Should().NotBeNull();
+        reconnectResponse.NewZoneId.Should().Be(ZoneId.Town);
+        scope.LogSuccess("Player successfully removed and can re-enter zone");
+    }
+
+    /// <summary>
+    /// 테스트 6: 여러 플레이어 중 특정 플레이어만 Disconnect 처리
+    /// </summary>
+    [Fact]
+    public void ZoneActor_Should_Handle_Selective_Disconnection()
+    {
+        using var scope = Test();
+
+        // Arrange
+        var player1Probe = CreateTestProbe("player1Probe");
+        var player2Probe = CreateTestProbe("player2Probe");
+        var player3Probe = CreateTestProbe("player3Probe");
+        var zoneActor = Sys.ActorOf(Props.Create<ZoneActor>(), "test-zone-selective");
+
+        const long playerId1 = 2005;
+        const long playerId2 = 2006;
+        const long playerId3 = 2007;
+
+        scope.LogInfo("Testing selective player disconnection");
+
+        // Act 1 - 3명 모두 Town에 추가
+        zoneActor.Tell(new ChangeZoneRequest(player1Probe.Ref, playerId1, ZoneId.Town));
+        player1Probe.ExpectMsg<ZoneChanged>();
+
+        zoneActor.Tell(new ChangeZoneRequest(player2Probe.Ref, playerId2, ZoneId.Town));
+        player2Probe.ExpectMsg<ZoneChanged>();
+
+        zoneActor.Tell(new ChangeZoneRequest(player3Probe.Ref, playerId3, ZoneId.Town));
+        player3Probe.ExpectMsg<ZoneChanged>();
+
+        scope.Log("All 3 players added to Town");
+
+        // Act 2 - Player2만 disconnect
+        zoneActor.Tell(new PlayerDisconnected(playerId2));
+        scope.LogWarning($"Disconnected Player {playerId2}");
+
+        Thread.Sleep(500);
+
+        // Act 3 - Player1과 Player3는 여전히 이동 가능해야 함
+        zoneActor.Tell(new PlayerMove(player1Probe.Ref, playerId1, 10.0f, 10.0f));
+        var move1 = player1Probe.ExpectMsg<PlayerMoved>(TimeSpan.FromSeconds(1));
+        move1.PlayerId.Should().Be(playerId1);
+
+        zoneActor.Tell(new PlayerMove(player3Probe.Ref, playerId3, 20.0f, 20.0f));
+        var move3 = player3Probe.ExpectMsg<PlayerMoved>(TimeSpan.FromSeconds(1));
+        move3.PlayerId.Should().Be(playerId3);
+
+        // Act 4 - Player2는 이동 불가 (Zone에서 제거됨)
+        zoneActor.Tell(new PlayerMove(player2Probe.Ref, playerId2, 30.0f, 30.0f));
+        var errorMsg = player2Probe.ExpectMsg<ErrorMessage>(TimeSpan.FromSeconds(1));
+        errorMsg.Type.Should().Be(ERROR_MSG_TYPE.PLAYER_MOVE_ERROR);
+
+        // Assert
+        scope.LogSuccess("Player1 and Player3 continue working, Player2 was removed");
+    }
+
+    /// <summary>
+    /// 테스트 8: 존재하지 않는 플레이어 Disconnect 처리
+    /// </summary>
+    [Fact]
+    public void ZoneActor_Should_Handle_Disconnect_For_NonExistent_Player()
+    {
+        using var scope = Test();
+
+        // Arrange
+        var zoneActor = Sys.ActorOf(Props.Create<ZoneActor>(), "test-zone-nonexistent");
+        const long nonExistentPlayerId = 2009;
+
+        scope.LogInfo($"Testing disconnect for non-existent Player {nonExistentPlayerId}");
+
+        // Act - 존재하지 않는 플레이어 disconnect (에러 없이 처리되어야 함)
+        var exception = Record.Exception(() =>
+        {
+            zoneActor.Tell(new PlayerDisconnected(nonExistentPlayerId));
+            Thread.Sleep(500);
+        });
+
+        // Assert
+        exception.Should().BeNull();
+        scope.LogSuccess("Non-existent player disconnect handled gracefully");
+    }
+
+    /// <summary>
+    /// 테스트 9: 동시 다중 Disconnect 처리
+    /// </summary>
+    [Fact]
+    public void ZoneActor_Should_Handle_Multiple_Simultaneous_Disconnects()
+    {
+        using var scope = Test();
+
+        // Arrange
+        var zoneActor = Sys.ActorOf(Props.Create<ZoneActor>(), "test-zone-multi-disconnect");
+        var probes = new List<TestProbe>();
+        var playerIds = new List<long>();
+
+        // 10명의 플레이어 생성
+        for (int i = 0; i < 10; i++)
+        {
+            probes.Add(CreateTestProbe($"player{i}Probe"));
+            playerIds.Add(2010 + i);
+        }
+
+        scope.LogInfo("Testing simultaneous disconnection of 10 players");
+
+        // Act 1 - 모든 플레이어 Town에 추가
+        for (int i = 0; i < 10; i++)
+        {
+            zoneActor.Tell(new ChangeZoneRequest(probes[i].Ref, playerIds[i], ZoneId.Town));
+            probes[i].ExpectMsg<ZoneChanged>(TimeSpan.FromSeconds(1));
+        }
+        scope.Log("All 10 players added to Town");
+
+        // Act 2 - 모든 플레이어 동시 disconnect
+        foreach (var playerId in playerIds)
+        {
+            zoneActor.Tell(new PlayerDisconnected(playerId));
+        }
+        scope.LogWarning("Sent disconnect for all 10 players");
+
+        Thread.Sleep(1000);
+
+        // Act 3 - 모든 플레이어 재진입 시도
+        var reconnectSuccess = true;
+        for (int i = 0; i < 10; i++)
+        {
+            zoneActor.Tell(new ChangeZoneRequest(probes[i].Ref, playerIds[i], ZoneId.Town));
+            var response = probes[i].ExpectMsg<ZoneChanged>(TimeSpan.FromSeconds(1));
+            if (response.NewZoneId != ZoneId.Town)
+            {
+                reconnectSuccess = false;
+                break;
+            }
+        }
+
+        // Assert
+        reconnectSuccess.Should().BeTrue();
+        scope.LogSuccess("All 10 players successfully removed and re-entered");
+    }
 }

@@ -18,6 +18,10 @@ public class WorldActor : ReceiveActor
 
         Receive<EnterWorld>(HandleEnterWorld);
         Receive<PlayerMove>(HandlePlayerMove);
+        Receive<ClientDisconnected>(HandleClientDisconnected);
+
+        // called HandleClientDisconnected
+        Receive<Terminated>(HandleTerminated);
     }
 
     private void HandleEnterWorld(EnterWorld msg)
@@ -73,5 +77,32 @@ public class WorldActor : ReceiveActor
         // 3. ZoneActor로 전달
         zoneActor.Tell(moveWithActor);
         Console.WriteLine($"[World] Move command forwarded - Player:{msg.PlayerId} to ({msg.X:F1}, {msg.Y:F1})");
+    }
+    private void HandleClientDisconnected(ClientDisconnected msg)
+    {
+        var playerId = msg.PlayerId;
+
+        if (players.TryGetValue(playerId, out var playerActor))
+        {
+            Console.WriteLine($"[World] Client disconnected, stopping Player {playerId}");
+            Context.Stop(playerActor);  // PlayerActor 종료 → Terminated 메시지 발생
+        }
+    }
+
+    private void HandleTerminated(Terminated terminated)
+    {
+        // terminated.ActorRef == 종료된 playerActor
+        var playerEntry = players.FirstOrDefault(kvp => kvp.Value.Equals(terminated.ActorRef));
+
+        if (playerEntry.Value != null)
+        {
+            var playerId = playerEntry.Key;
+            players.Remove(playerId);  // ← Dictionary에서 제거
+
+            // ZoneActor에게도 알림
+            zoneActor.Tell(new PlayerDisconnected(playerId));
+
+            Console.WriteLine($"[World] Player {playerId} terminated and cleaned up");
+        }
     }
 }
