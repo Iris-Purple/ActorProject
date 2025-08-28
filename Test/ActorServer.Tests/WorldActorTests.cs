@@ -109,4 +109,120 @@ public class WorldActorTests : AkkaTestKitBase
         
         scope.LogSuccess($"All {playerIds.Length} players created successfully");
     }
+    /// <summary>
+    /// 테스트 4: PlayerMove 메시지 처리 - 정상 이동
+    /// </summary>
+    [Fact]
+    public void WorldActor_Should_Forward_PlayerMove_To_ZoneActor()
+    {
+        using var scope = Test();
+
+        // Arrange
+        const long playerId = 7006;
+        var worldActor = Sys.ActorOf(Props.Create<WorldActor>(), "world4");
+        var db = PlayerDatabase.Instance;
+        
+        // 플레이어 먼저 생성
+        db.GetOrCreatePlayerId(playerId);
+        worldActor.Tell(new EnterWorld(playerId));
+        Thread.Sleep(1000); // PlayerActor 생성 대기
+        
+        scope.LogInfo($"Testing PlayerMove for Player {playerId}");
+        
+        // Act - 이동 명령
+        var moveMsg = new PlayerMove(
+            PlayerActor: null!,  // WorldActor가 찾아서 설정
+            PlayerId: playerId,
+            X: 50.0f,
+            Y: 75.0f
+        );
+        
+        worldActor.Tell(moveMsg);
+        scope.Log($"Sent move command to ({moveMsg.X}, {moveMsg.Y})");
+        
+        // Assert - DB에서 위치 변경 확인
+        Thread.Sleep(1000); // ZoneActor의 DB 저장 대기
+        
+        var savedData = db.LoadPlayer(playerId);
+        savedData.Should().NotBeNull();
+        savedData!.Value.x.Should().Be(50.0f);
+        savedData.Value.y.Should().Be(75.0f);
+        
+        scope.LogSuccess($"Player moved to ({savedData.Value.x}, {savedData.Value.y})");
+    }
+
+    /// <summary>
+    /// 테스트 5: PlayerMove 메시지 처리 - 존재하지 않는 플레이어
+    /// </summary>
+    [Fact]
+    public void WorldActor_Should_Handle_PlayerMove_For_NonExistent_Player()
+    {
+        using var scope = Test();
+
+        // Arrange
+        const long nonExistentId = 7007;
+        var worldActor = Sys.ActorOf(Props.Create<WorldActor>(), "world5");
+        
+        scope.LogInfo($"Testing PlayerMove for non-existent Player {nonExistentId}");
+        
+        // Act - 존재하지 않는 플레이어 이동 시도
+        var exception = Record.Exception(() =>
+        {
+            var moveMsg = new PlayerMove(
+                PlayerActor: null!,
+                PlayerId: nonExistentId,
+                X: 100.0f,
+                Y: 200.0f
+            );
+            
+            worldActor.Tell(moveMsg);
+            Thread.Sleep(500);
+        });
+        
+        // Assert - 에러 없이 처리됨 (로그만 남김)
+        exception.Should().BeNull();
+        scope.LogSuccess("Non-existent player move handled gracefully");
+    }
+
+    /// <summary>
+    /// 테스트 7: 재접속 후 이동 처리
+    /// </summary>
+    [Fact]
+    public void WorldActor_Should_Handle_Move_After_Reconnection()
+    {
+        using var scope = Test();
+
+        // Arrange
+        const long playerId = 7011;
+        var worldActor = Sys.ActorOf(Props.Create<WorldActor>(), "world7");
+        var db = PlayerDatabase.Instance;
+        
+        db.GetOrCreatePlayerId(playerId);
+        
+        // Act 1 - 첫 접속 후 이동
+        worldActor.Tell(new EnterWorld(playerId));
+        Thread.Sleep(500);
+        
+        worldActor.Tell(new PlayerMove(null!, playerId, 25.0f, 35.0f));
+        Thread.Sleep(1000);
+        
+        var firstData = db.LoadPlayer(playerId);
+        firstData!.Value.x.Should().Be(25.0f);
+        scope.Log($"First move: ({firstData.Value.x}, {firstData.Value.y})");
+        
+        // Act 2 - 재접속
+        worldActor.Tell(new EnterWorld(playerId));
+        Thread.Sleep(1000);
+        
+        // Act 3 - 재접속 후 이동
+        worldActor.Tell(new PlayerMove(null!, playerId, 70.0f, 80.0f));
+        Thread.Sleep(1000);
+        
+        // Assert
+        var finalData = db.LoadPlayer(playerId);
+        finalData!.Value.x.Should().Be(70.0f);
+        finalData.Value.y.Should().Be(80.0f);
+        
+        scope.LogSuccess($"Move after reconnection: ({finalData.Value.x}, {finalData.Value.y})");
+    }
 }
