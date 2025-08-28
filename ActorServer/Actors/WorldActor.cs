@@ -16,10 +16,10 @@ public class WorldActor : ReceiveActor
     {
         zoneActor = Context.ActorOf(Props.Create<ZoneActor>(), "zone");
 
-        Receive<EnterWorld>(HandlePlayerEnterWorld);
+        Receive<EnterWorld>(HandleEnterWorld);
     }
 
-    private void HandlePlayerEnterWorld(EnterWorld msg)
+    private void HandleEnterWorld(EnterWorld msg)
     {
         try
         {

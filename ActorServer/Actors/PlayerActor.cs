@@ -47,11 +47,12 @@ public class PlayerActor : ReceiveActor
     private void HandleZoneChanged(ZoneChanged msg)
     {
         Console.WriteLine($"[PlayerActor-{playerId}] ZoneChanged: {msg}");
+        clientConnection?.Tell(msg);
     }
     private void HandlePlayerMoved(PlayerMoved msg)
     {
         Console.WriteLine($"[PlayerActor-{playerId}] Move confirmed to ({msg.X}, {msg.Y})");
-        clientConnection?.Tell(new ChatMessage($"Moved to ({msg.X:F1}, {msg.Y:F1})"));
+        clientConnection?.Tell(msg);
     }
 
     private void HandleSetClientConnection(SetClientConnection msg)
