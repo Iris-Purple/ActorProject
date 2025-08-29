@@ -23,7 +23,7 @@ namespace ActorServer.Network
             _connection = connection;
 
             // 추가: 컨텍스트와 핸들러 매니저 초기화
-            _context = new ClientConnectionContext(connection, Self);
+            _context = new ClientConnectionContext(connection, Self, Context);
             _handlerManager = new PacketHandlerManager(_context);
 
             // TCP 메시지 수신

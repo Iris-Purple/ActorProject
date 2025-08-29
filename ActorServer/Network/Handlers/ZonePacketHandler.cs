@@ -1,5 +1,6 @@
 using ActorServer.Messages;
 using ActorServer.Network.Protocol;
+using Akka.Actor;
 
 namespace ActorServer.Network.Handlers;
 
@@ -8,7 +9,7 @@ namespace ActorServer.Network.Handlers;
 /// </summary>
 public class ZonePacketHandler : IPacketHandler
 {
-    public Task HandlePacket(Packet packet, ClientConnectionContext context)
+    public Task HandlePacket(Packet packet, ClientConnectionContext context, ActorSelection worldActor)
     {
         if (packet is not ZonePacket zonePacket)
             return Task.CompletedTask;

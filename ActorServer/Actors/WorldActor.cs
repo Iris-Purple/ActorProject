@@ -30,14 +30,29 @@ public class WorldActor : ReceiveActor
         if (players.ContainsKey(playerId))
         {
             Console.WriteLine($"[World] Player (ID:{playerId}) reconnecting...");
+
+            // 재접속 시 클라이언트 연결 업데이트
+            if (msg.ClientConnection != null)
+            {
+                players[playerId].Tell(new SetClientConnection(msg.ClientConnection));
+                Console.WriteLine($"[World] Updated client connection for Player {playerId}");
+            }
             return;
         }
+
         var actorName = $"player-{playerId}";
         var playerActor = Context.ActorOf(
             Props.Create<PlayerActor>(playerId), actorName);
 
         Context.Watch(playerActor);
         players[playerId] = playerActor;
+
+        // 클라이언트 연결 설정
+        if (msg.ClientConnection != null)
+        {
+            playerActor.Tell(new SetClientConnection(msg.ClientConnection));
+            Console.WriteLine($"[World] Set client connection for new Player {playerId}");
+        }
 
         zoneActor.Tell(new ChangeZoneRequest(playerActor, playerId, Zone.ZoneId.Town));
         Console.WriteLine($"[World] Player (ID:{playerId}) logged in");

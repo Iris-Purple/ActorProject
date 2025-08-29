@@ -9,7 +9,7 @@ namespace ActorServer.Network.Handlers;
 /// </summary>
 public class MovePacketHandler : IPacketHandler
 {
-    public Task HandlePacket(Packet packet, ClientConnectionContext context)
+    public Task HandlePacket(Packet packet, ClientConnectionContext context, ActorSelection worldActor)
     {
         if (packet is not MovePacket movePacket)
             return Task.CompletedTask;

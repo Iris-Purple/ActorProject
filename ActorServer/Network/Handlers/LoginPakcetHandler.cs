@@ -1,5 +1,7 @@
+using ActorServer.Actors;
 using ActorServer.Messages;
 using ActorServer.Network.Protocol;
+using Akka.Actor;
 using Common.Database;
 
 namespace ActorServer.Network.Handlers;
@@ -11,7 +13,7 @@ public class LoginPacketHandler : IPacketHandler
 {
     private readonly AccountDatabase _accountDb = AccountDatabase.Instance;
 
-    public async Task HandlePacket(Packet packet, ClientConnectionContext context)
+    public async Task HandlePacket(Packet packet, ClientConnectionContext context, ActorSelection worldActor)
     {
         if (packet is not LoginPacket loginPacket)
             return;
@@ -34,6 +36,11 @@ public class LoginPacketHandler : IPacketHandler
 
         // 3. 검증 완료 후 WorldActor에는 PlayerId만 전달 (토큰 불필요)
         context.PlayerId = loginPacket.PlayerId;
+
+        worldActor.Tell(new EnterWorld(
+            PlayerId: loginPacket.PlayerId,
+            ClientConnection: context.Self  // ClientConnectionActor 참조 전달
+        ));
 
         // 4. 성공 응답
         context.SendPacket(new LoginResponsePacket

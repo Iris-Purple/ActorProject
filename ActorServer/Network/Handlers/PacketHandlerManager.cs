@@ -1,5 +1,6 @@
 using System.Threading.Tasks;
 using ActorServer.Network.Protocol;
+using Akka.Actor;
 
 namespace ActorServer.Network.Handlers;
 
@@ -10,10 +11,12 @@ public class PacketHandlerManager
 {
     private readonly Dictionary<PacketType, IPacketHandler> _handlers;
     private readonly ClientConnectionContext _context;
+    private readonly ActorSelection worldActor;
     
     public PacketHandlerManager(ClientConnectionContext context)
     {
         _context = context;
+        worldActor = context.ActorContext.ActorSelection("/user/world");
         _handlers = new Dictionary<PacketType, IPacketHandler>
         {
             // 각 패킷 타입별 핸들러 등록
@@ -31,7 +34,7 @@ public class PacketHandlerManager
     {
         if (_handlers.TryGetValue(packet.Type, out var handler))
         {
-            await handler.HandlePacket(packet, _context);
+            await handler.HandlePacket(packet, _context, worldActor);
         }
         else
         {

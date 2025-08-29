@@ -9,7 +9,7 @@ namespace ActorServer.Network.Handlers;
 /// </summary>
 public interface IPacketHandler
 {
-    Task HandlePacket(Packet packet, ClientConnectionContext context);
+    Task HandlePacket(Packet packet, ClientConnectionContext context, ActorSelection worldActor);
 }
 
 /// <summary>
@@ -19,12 +19,16 @@ public class ClientConnectionContext
 {
     public IActorRef Connection { get; }
     public IActorRef Self { get; }
-    public long PlayerId { get; set;}
+    public long PlayerId { get; set; }
+    // 추가: ActorContext 참조 (ActorSelection 사용을 위해)
+    public IActorContext ActorContext { get; }
 
-    public ClientConnectionContext(IActorRef connection, IActorRef self)
+
+    public ClientConnectionContext(IActorRef connection, IActorRef self, IActorContext actorContext)
     {
         Connection = connection;
         Self = self;
+        ActorContext = actorContext;
     }
     public void SendPacket<T>(T packet) where T : Packet
     {
