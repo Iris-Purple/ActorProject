@@ -34,7 +34,6 @@ public class LoginPacketHandler : IPacketHandler
 
         // 3. 검증 완료 후 WorldActor에는 PlayerId만 전달 (토큰 불필요)
         context.PlayerId = loginPacket.PlayerId;
-        //context.TellWorldActor(new EnterWorld(loginPacket.PlayerId));  // 토큰 제거
 
         // 4. 성공 응답
         context.SendPacket(new LoginResponsePacket

@@ -26,29 +26,22 @@ public class WorldActor : ReceiveActor
 
     private void HandleEnterWorld(EnterWorld msg)
     {
-        try
+        var playerId = msg.PlayerId;
+        if (players.ContainsKey(playerId))
         {
-            var playerId = msg.PlayerId;
-            if (players.ContainsKey(playerId))
-            {
-                Console.WriteLine($"[World] Player (ID:{playerId}) reconnecting...");
-                return;
-            }
-            var actorName = $"player-{playerId}";
-            var playerActor = Context.ActorOf(
-                Props.Create<PlayerActor>(playerId), actorName);
-
-            Context.Watch(playerActor);
-            players[playerId] = playerActor;
-
-            zoneActor.Tell(new ChangeZoneRequest(playerActor, playerId, Zone.ZoneId.Town));
-            Console.WriteLine($"[World] Player (ID:{playerId}) logged in");
-            Console.WriteLine($"[World] Total online players: {players.Count}");
+            Console.WriteLine($"[World] Player (ID:{playerId}) reconnecting...");
+            return;
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[World] ERROR: Failed to create player {msg.PlayerId}: {ex.Message}");
-        }
+        var actorName = $"player-{playerId}";
+        var playerActor = Context.ActorOf(
+            Props.Create<PlayerActor>(playerId), actorName);
+
+        Context.Watch(playerActor);
+        players[playerId] = playerActor;
+
+        zoneActor.Tell(new ChangeZoneRequest(playerActor, playerId, Zone.ZoneId.Town));
+        Console.WriteLine($"[World] Player (ID:{playerId}) logged in");
+        Console.WriteLine($"[World] Total online players: {players.Count}");
     }
     private void HandlePlayerMove(PlayerMove msg)
     {
