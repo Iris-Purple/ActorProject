@@ -70,7 +70,7 @@ public record SayPacket : Packet
 public record ZonePacket : Packet
 {
     [JsonPropertyName("zoneName")]
-    public string ZoneName { get; init; } = "";
+    public int ZoneId { get; init; }
     
     public ZonePacket() 
     { 

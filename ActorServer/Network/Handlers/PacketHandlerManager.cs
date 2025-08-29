@@ -23,7 +23,7 @@ public class PacketHandlerManager
             { PacketType.Login, new LoginPacketHandler() },
             { PacketType.Move, new MovePacketHandler() },
             { PacketType.Say, new ChatPacketHandler() },
-            { PacketType.Zone, new ZonePacketHandler() }
+            { PacketType.Zone, new ChangeZonePacketHandler() }
         };
     }
     
