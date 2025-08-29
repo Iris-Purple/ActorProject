@@ -1,4 +1,3 @@
-// Test/ActorServer.Tests/LoginPacketHandlerTests.cs
 using Xunit;
 using Xunit.Abstractions;
 using ActorServer.Network.Handlers;
