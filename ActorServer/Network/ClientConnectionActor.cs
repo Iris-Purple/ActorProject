@@ -35,6 +35,21 @@ namespace ActorServer.Network
                 ProcessJsonPackets(message);
             });
 
+            ReceiveAny(msg => {
+                // 제네릭 메시지 처리
+                if (msg.GetType().IsGenericType &&
+                    msg.GetType().GetGenericTypeDefinition() == typeof(SendPacketToClient<>))
+                {
+                    // 리플렉션으로 Packet 추출
+                    var packet = msg.GetType().GetProperty("Packet")?.GetValue(msg) as Packet;
+                    if (packet != null)
+                    {
+                        SendPacket(packet);
+                        Console.WriteLine($"[Client] Sent {packet.GetType().Name} to client");
+                    }
+                }
+            });
+
             // 연결 종료
             Receive<Tcp.ConnectionClosed>(closed =>
             {

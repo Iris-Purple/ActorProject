@@ -1,6 +1,7 @@
 using Akka.Actor;
 using ActorServer.Messages;
 using ActorServer.Zone;
+using ActorServer.Network.Protocol;
 
 namespace ActorServer.Messages;
 
@@ -23,3 +24,4 @@ public record ChatMessage(string Message);
 public record PlayerInfo(long PlayerId, Position Position);
 
 public record SetClientConnection(IActorRef ClientActor);
+public record SendPacketToClient<T>(T Packet) where T : Packet;

@@ -2,6 +2,7 @@ using Akka.Actor;
 using ActorServer.Messages;
 using Common.Database;
 using ActorServer.Zone;
+using ActorServer.Network.Protocol;
 
 namespace ActorServer.Actors;
 
@@ -18,7 +19,6 @@ public class PlayerActor : ReceiveActor
     public PlayerActor(long playerId)
     {
         this.playerId = playerId;
-        
         Console.WriteLine($"[PlayerActor-{playerId}] Actor created");
 
         // ===== 클라이언트 연결 =====
@@ -27,10 +27,8 @@ public class PlayerActor : ReceiveActor
         // zone -> player
         Receive<ZoneChanged>(HandleZoneChanged);
         Receive<PlayerMoved>(HandlePlayerMoved);
-
         // ===== 채팅 관련 메시지 =====
         Receive<ChatMessage>(HandleSendChat);
-        
         // ===== 에러 메시지 =====
         Receive<ErrorMessage>(HandleError);
     }
@@ -41,18 +39,40 @@ public class PlayerActor : ReceiveActor
     private void HandleSendChat(ChatMessage msg)
     {
         Console.WriteLine($"[PlayerActor-{playerId}] Chat confirmed: {msg.Message}");
-        clientConnection?.Tell(msg);
+        var packet = new ChatMessagePacket
+        {
+            PlayerName = $"Player_{playerId}",
+            Message = msg.Message,
+            IsSelf = true
+        };
+        
+        SendToClient(packet);
     }
 
     private void HandleZoneChanged(ZoneChanged msg)
     {
         Console.WriteLine($"[PlayerActor-{playerId}] ZoneChanged: {msg}");
-        clientConnection?.Tell(msg);
+        var packet = new ZoneChangeResponsePacket
+        {
+            Success = true,
+            ZoneName = msg.NewZoneId.ToString(),
+            Message = $"Entered {msg.NewZoneId} at ({msg.SpawnPosition.X}, {msg.SpawnPosition.Y})"
+        };
+        
+        SendToClient(packet);
     }
     private void HandlePlayerMoved(PlayerMoved msg)
     {
         Console.WriteLine($"[PlayerActor-{playerId}] Move confirmed to ({msg.X}, {msg.Y})");
-        clientConnection?.Tell(msg);
+        var packet = new MoveNotificationPacket
+        {
+            PlayerId = msg.PlayerId,
+            X = msg.X,
+            Y = msg.Y,
+            IsSelf = true
+        };
+        
+        SendToClient(packet);
     }
 
     private void HandleSetClientConnection(SetClientConnection msg)
@@ -64,7 +84,26 @@ public class PlayerActor : ReceiveActor
     private void HandleError(ErrorMessage err)
     {
         Console.WriteLine($"ERROR [PlayerActor-{playerId}]: {err}");
-        clientConnection?.Tell(err);
+        var packet = new ErrorMessagePacket
+        {
+            Error = err.Type.ToString(),
+            Details = err.Reason
+        };
+        
+        SendToClient(packet);
+    }
+
+    private void SendToClient<T>(T packet) where T : Packet
+    {
+        if (clientConnection == null)
+        {
+            Console.WriteLine($"[PlayerActor-{playerId}] No client connection");
+            return;
+        }
+
+        // 변경: ClientConnectionActor의 SendPacket 활용
+        clientConnection.Tell(new SendPacketToClient<T>(packet));
+        Console.WriteLine($"[PlayerActor-{playerId}] Requested {packet.GetType().Name} send");
     }
 
     protected override void PreStart()
@@ -76,7 +115,7 @@ public class PlayerActor : ReceiveActor
     protected override void PostStop()
     {
         Console.WriteLine($"[PlayerActor-{playerId}] Stopped.");
-        
+
         base.PostStop();
     }
 
@@ -84,17 +123,14 @@ public class PlayerActor : ReceiveActor
     {
         Console.WriteLine($"[PlayerActor-{playerId}] PRE-RESTART: {reason.GetType().Name}");
         Console.WriteLine($"  Caused by message: {message?.GetType().Name ?? "null"}");
-        
+
         base.PreRestart(reason, message);
     }
 
     protected override void PostRestart(Exception reason)
     {
         Console.WriteLine($"[PlayerActor-{playerId}] POST-RESTART completed");
-        
-        // 클라이언트에 재연결 알림
-        clientConnection?.Tell(new ChatMessage("Connection restored"));
-        
+
         base.PostRestart(reason);
     }
 }
