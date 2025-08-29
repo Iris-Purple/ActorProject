@@ -30,9 +30,18 @@ public class ClientConnectionContext
         Self = self;
         ActorContext = actorContext;
     }
-    public void SendPacket<T>(T packet) where T : Packet
+    public virtual void SendPacket<T>(T packet) where T : Packet
     {
         var bytes = PacketSerializer.SerializeToBytes(packet);
         Connection.Tell(Tcp.Write.Create(bytes), Self);
     }
+}
+
+public interface IClientContext
+{
+    IActorRef Connection { get; }
+    IActorRef Self { get; }
+    long PlayerId { get; set; }
+    IActorContext ActorContext { get; }
+    void SendPacket<T>(T packet) where T : Packet;
 }
