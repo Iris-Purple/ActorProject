@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  authserver:
+    build:
+      context: .
+      dockerfile: AuthServer/Dockerfile
+    container_name: mmo-authserver
+    ports:
+      - "5006:5006"
+    volumes:
+      - auth-db:/app/Database
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5006
+      - ConnectionStrings__AuthDb=Data Source=/app/Database/auth.db
+    networks:
+      - mmo-network
+    restart: unless-stopped
+    healthcheck:
+      # curl로 변경 (wget 대신)
+      test: ["CMD", "curl", "-f", "http://localhost:5006/api/auth/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  actorserver:
+    build:
+      context: .
+      dockerfile: ActorServer/Dockerfile
+    container_name: mmo-actorserver
+    ports:
+      - "9999:9999"
+    volumes:
+      - game-db:/app/Database
+    environment:
+      - ENVIRONMENT=Production
+      - AUTH_SERVER_URL=http://authserver:5006
+    networks:
+      - mmo-network
+    # 변경: health check 조건 제거하고 단순 depends_on 사용
+    depends_on:
+      - authserver
+    restart: unless-stopped
+
+volumes:
+  auth-db:
+    name: mmo-auth-database
+  game-db:
+    name: mmo-game-database
+
+networks:
+  mmo-network:
+    name: mmo-network
+    driver: bridge

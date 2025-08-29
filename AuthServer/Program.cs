@@ -6,7 +6,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 
 // AccountDatabase 싱글톤 인스턴스를 DI 컨테이너에 등록
-// Factory 패턴으로 Instance 제공
 builder.Services.AddSingleton<AccountDatabase>(serviceProvider => AccountDatabase.Instance);
 
 // CORS 설정 - 클라이언트 접근 허용
@@ -21,16 +20,29 @@ builder.Services.AddCors(options =>
         });
 });
 
+// 추가: Production 환경에서 HTTPS 리디렉션 비활성화
+if (builder.Environment.IsProduction())
+{
+    builder.WebHost.UseUrls("http://+:5006");
+}
+
 var app = builder.Build();
 
-app.UseHttpsRedirection();
+// 변경: Production에서는 HTTPS 리디렉션 사용 안함
+if (!app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseCors("GameClient");
 app.UseAuthorization();
 app.MapControllers();
 
 // 시작 로그
-app.Logger.LogInformation("AuthServer starting on port {Port}", 
-    app.Configuration["Urls"] ?? "https://localhost:7000");
+app.Logger.LogInformation("AuthServer starting on {Environment} environment", 
+    app.Environment.EnvironmentName);
+app.Logger.LogInformation("Listening on: {Urls}", 
+    app.Configuration["ASPNETCORE_URLS"] ?? "http://localhost:5006");
 
 app.Run();
 
