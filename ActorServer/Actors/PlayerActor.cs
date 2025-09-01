@@ -31,6 +31,12 @@ public class PlayerActor : ReceiveActor
         Receive<ChatMessage>(HandleSendChat);
         // ===== 에러 메시지 =====
         Receive<ErrorMessage>(HandleError);
+
+        // 추가: 테스트용 메시지 핸들러 (DEBUG 모드에서만)
+        #if DEBUG
+        Receive<CausePlayerException>(HandleCauseException);
+        Receive<HealthCheck>(HandleHealthCheck);
+        #endif
     }
 
     /// <summary>
@@ -45,7 +51,7 @@ public class PlayerActor : ReceiveActor
             Message = msg.Message,
             IsSelf = true
         };
-        
+
         SendToClient(packet);
     }
 
@@ -58,7 +64,7 @@ public class PlayerActor : ReceiveActor
             ZoneName = msg.NewZoneId.ToString(),
             Message = $"Entered {msg.NewZoneId} at ({msg.SpawnPosition.X}, {msg.SpawnPosition.Y})"
         };
-        
+
         SendToClient(packet);
     }
     private void HandlePlayerMoved(PlayerMoved msg)
@@ -71,7 +77,7 @@ public class PlayerActor : ReceiveActor
             Y = msg.Y,
             IsSelf = true
         };
-        
+
         SendToClient(packet);
     }
 
@@ -89,7 +95,7 @@ public class PlayerActor : ReceiveActor
             Error = err.Type.ToString(),
             Details = err.Reason
         };
-        
+
         SendToClient(packet);
     }
 
@@ -133,4 +139,37 @@ public class PlayerActor : ReceiveActor
 
         base.PostRestart(reason);
     }
+
+    #if DEBUG
+    // 추가: 테스트용 - 예외 발생 핸들러
+    private void HandleCauseException(CausePlayerException msg)
+    {
+        Console.WriteLine($"[PlayerActor-{playerId}] TEST: Causing exception - {msg.Reason}");
+        
+        // 의도적으로 다양한 예외 발생
+        switch (msg.Reason)
+        {
+            case "NullReference":
+                throw new NullReferenceException($"Test exception for Player {playerId}");
+                
+            case "InvalidOperation":
+                throw new InvalidOperationException($"Test exception for Player {playerId}");
+                
+            case "DivideByZero":
+                var zero = 0;
+                var result = 10 / zero;  // DivideByZeroException 발생
+                break;
+                
+            default:
+                throw new Exception($"Generic test exception for Player {playerId}: {msg.Reason}");
+        }
+    }
+    
+    // 추가: 테스트용 - 헬스 체크 핸들러
+    private void HandleHealthCheck(HealthCheck msg)
+    {
+        Console.WriteLine($"[PlayerActor-{playerId}] Health check");
+        Sender.Tell(new HealthCheckResponse($"Player-{playerId}", true));
+    }
+    #endif
 }

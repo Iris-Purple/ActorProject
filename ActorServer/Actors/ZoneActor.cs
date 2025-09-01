@@ -22,6 +22,12 @@ public class ZoneActor : ReceiveActor
         Receive<ChangeZoneRequest>(HandleChangeZoneRequest);
         Receive<PlayerMove>(HandlePlayerMove);
         Receive<PlayerDisconnected>(HandlePlayerDisconnected);
+
+        // 테스트용 메시지 핸들러 (DEBUG 모드에서만)
+#if DEBUG
+        Receive<CauseZoneException>(HandleCauseException);
+        Receive<HealthCheck>(HandleHealthCheck);
+#endif
     }
 
     private void InitializeZones()
@@ -258,4 +264,40 @@ public class ZoneActor : ReceiveActor
         Console.WriteLine("[ZoneActor] Restart completed");
         base.PostRestart(reason);
     }
+
+#if DEBUG
+    // 추가: 테스트용 - 예외 발생 핸들러
+    private void HandleCauseException(CauseZoneException msg)
+    {
+        Console.WriteLine($"[ZoneActor] TEST: Causing exception - {msg.Reason}");
+
+        // 의도적으로 다양한 예외 발생
+        switch (msg.Reason)
+        {
+            case "NullReference":
+                throw new NullReferenceException($"Test exception in ZoneActor: {msg.Reason}");
+
+            case "InvalidOperation":
+                throw new InvalidOperationException($"Test exception in ZoneActor: {msg.Reason}");
+
+            case "OutOfMemory":
+                throw new OutOfMemoryException($"Test exception in ZoneActor: {msg.Reason}");
+
+            default:
+                throw new Exception($"Generic test exception in ZoneActor: {msg.Reason}");
+        }
+    }
+
+    // 추가: 테스트용 - 헬스 체크 핸들러 (Resume 후에도 동작하는지 확인)
+    private void HandleHealthCheck(HealthCheck msg)
+    {
+        Console.WriteLine($"[ZoneActor] Health check - Exception Zones: {_zones.Count}");
+
+        // Zone 상태 정보 포함
+        var totalPlayers = _zones.Values.Sum(z => z.PlayerCount);
+        Console.WriteLine($"[ZoneActor] Total players across all zones: {totalPlayers}");
+
+        Sender.Tell(new HealthCheckResponse("ZoneActor", true));
+    }
+#endif
 }

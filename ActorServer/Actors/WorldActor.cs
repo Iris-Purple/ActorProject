@@ -10,7 +10,10 @@ public class WorldActor : ReceiveActor
 
     public WorldActor()
     {
-        zoneActor = Context.ActorOf(Props.Create<ZoneActor>(), "zone");
+        zoneActor = Context.ActorOf(
+            Props.Create<ZoneActor>()
+                .WithSupervisorStrategy(CreateZoneSupervisionStrategy()), 
+            "zone");
 
         Receive<EnterWorld>(HandleEnterWorld);
         Receive<PlayerMove>(HandlePlayerMove);
@@ -18,6 +21,66 @@ public class WorldActor : ReceiveActor
 
         // called HandleClientDisconnected
         Receive<Terminated>(HandleTerminated);
+    }
+    protected override SupervisorStrategy SupervisorStrategy()
+    {
+        return new OneForOneStrategy(
+            maxNrOfRetries: 10,          // 최대 10회 재시도
+            withinTimeRange: TimeSpan.FromMinutes(1),  // 1분 내에
+            localOnlyDecider: exception =>
+            {
+                // 로깅 추가
+                Console.WriteLine($"[WorldActor-Supervisor] Exception caught: {exception.GetType().Name}");
+                Console.WriteLine($"[WorldActor-Supervisor] Message: {exception.Message}");
+
+                switch (exception)
+                {
+                    // PlayerActor 관련 예외들 - 항상 Restart
+                    case ActorKilledException _:
+                        Console.WriteLine("[WorldActor-Supervisor] ActorKilledException → Stop");
+                        return Directive.Stop;
+
+                    case ActorInitializationException _:
+                        Console.WriteLine("[WorldActor-Supervisor] ActorInitializationException → Stop");
+                        return Directive.Stop;
+
+                    // 기본값: Restart (PlayerActor는 모든 예외에서 재시작)
+                    default:
+                        Console.WriteLine("[WorldActor-Supervisor] Default exception → Restart");
+                        return Directive.Restart;
+                }
+            });
+    }
+
+    // ZoneActor는 예외가 발생해도 계속 진행 (Resume)
+    private SupervisorStrategy CreateZoneSupervisionStrategy()
+    {
+        return new OneForOneStrategy(
+            maxNrOfRetries: -1,  // 무제한 재시도
+            withinTimeRange: TimeSpan.FromMinutes(1),
+            localOnlyDecider: exception =>
+            {
+                // ZoneActor 예외 처리 로깅
+                Console.WriteLine($"[ZoneActor-Supervisor] Exception caught: {exception.GetType().Name}");
+                Console.WriteLine($"[ZoneActor-Supervisor] Message: {exception.Message}");
+
+                switch (exception)
+                {
+                    // ActorKilledException은 Stop (강제 종료 명령)
+                    case ActorKilledException _:
+                        Console.WriteLine("[ZoneActor-Supervisor] ActorKilledException → Stop");
+                        return Directive.Stop;
+
+                    case ActorInitializationException _:
+                        Console.WriteLine("[ZoneActor-Supervisor] ActorInitializationException → Stop");
+                        return Directive.Stop;
+
+                    // 나머지 모든 예외는 Resume (계속 진행)
+                    default:
+                        Console.WriteLine("[ZoneActor-Supervisor] Exception handled → Resume");
+                        return Directive.Resume;
+                }
+            });
     }
 
     private void HandleEnterWorld(EnterWorld msg)
