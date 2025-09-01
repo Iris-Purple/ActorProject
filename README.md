@@ -152,7 +152,6 @@ ActorProject/
 - **[API 명세](./Documents/API.md)** - REST API 및 패킷 프로토콜
 - **[배포 가이드](./Documents/Deployment.md)** - Docker 및 프로덕션 배포
 - **[테스트 전략](./Documents/Testing.md)** - 테스트 방법론 및 시나리오
-- **[성능 최적화](./Documents/Performance.md)** - 성능 측정 및 개선
 - **[트러블슈팅](./Documents/Troubleshooting.md)** - 주요 이슈 및 해결
 
 ## 🔧 개발 환경 설정
