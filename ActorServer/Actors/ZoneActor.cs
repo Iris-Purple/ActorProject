@@ -10,8 +10,6 @@ public class ZoneActor : ReceiveActor
 {
     private readonly Dictionary<ZoneId, ZoneInfo> _zones = new();
     private readonly PlayerDatabase _playerDb = PlayerDatabase.Instance;
-
-
     private const int DEFAULT_MAX_PLAYERS = 100;
 
     public ZoneActor()

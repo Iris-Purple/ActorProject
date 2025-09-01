@@ -8,10 +8,6 @@ public class WorldActor : ReceiveActor
     private Dictionary<long, IActorRef> players = new();
     private IActorRef zoneActor;
 
-    protected override SupervisorStrategy SupervisorStrategy()
-    {
-        return GameServerStrategies.ForWorldActor();
-    }
     public WorldActor()
     {
         zoneActor = Context.ActorOf(Props.Create<ZoneActor>(), "zone");
