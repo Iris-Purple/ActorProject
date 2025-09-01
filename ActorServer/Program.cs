@@ -7,7 +7,7 @@ class Program
 {
     static async Task Main(string[] args)
     {
-        var system = ActorSystem.Create("MMOServer");
+        var system = ActorSystem.Create("Actor-Server");
         
         // WorldActor 생성 (Supervision 전략 포함)
         var worldActor = system.ActorOf(Props.Create<WorldActor>(), "world");
