@@ -184,33 +184,6 @@ cd AuthServer && dotnet run
 cd ActorServer && dotnet run
 ```
 
-## 💡 기술적 도전과 해결
-
-### 1. Actor 간 메시지 순서 보장
-**문제**: 비동기 메시지 처리로 인한 순서 역전  
-**해결**: Stash 패턴과 Become 활용으로 상태 기반 처리
-
-### 2. Zone 이동 시 데이터 일관성
-**문제**: Zone 간 이동 중 메시지 유실  
-**해결**: 2-Phase Commit 패턴 적용
-
-### 3. 대량 동시 접속 처리
-**문제**: 동시 접속 시 DB 병목  
-**해결**: Connection Pool 최적화 및 배치 처리
-
-[더 많은 기술적 도전 보기](./Documents/TechnicalChallenges.md)
-
-## 🤝 기여하기
-
-이 프로젝트는 포트폴리오 목적으로 개발되었지만, 피드백과 제안은 언제나 환영합니다!
-
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-
 ** Developer **
 - GitHub: [@Iris-Purple](https://github.com/Iris-Purple)
 - Email: khj667@naver.com
