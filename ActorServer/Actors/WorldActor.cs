@@ -1,12 +1,15 @@
+using System.Collections.Immutable;
 using ActorServer.Messages;
+using ActorServer.Zone;
 using Akka.Actor;
 
 namespace ActorServer.Actors;
 
 public class WorldActor : ReceiveActor
 {
-    private Dictionary<long, IActorRef> players = new();
+    private readonly ImmutableDictionary<long, IActorRef> players = ImmutableDictionary<long, IActorRef>.Empty;
     private IActorRef zoneActor;
+    private Dictionary<ZoneId, IActorRef> zoneActors = new();
 
     public WorldActor()
     {
@@ -104,7 +107,7 @@ public class WorldActor : ReceiveActor
             Props.Create<PlayerActor>(playerId), actorName);
 
         Context.Watch(playerActor);
-        players[playerId] = playerActor;
+        players.Add(playerId, playerActor);
 
         // 클라이언트 연결 설정
         if (msg.ClientConnection != null)
